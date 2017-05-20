@@ -4,6 +4,7 @@ import pandas as pd
 import random
 from tqdm import tqdm
 import xgboost as xgb
+from generate_val_dataset import generate_val_dataset
 
 import scipy
 from sklearn.metrics import fbeta_score
@@ -16,22 +17,18 @@ np.random.seed(random_seed)
 
 
 # Load data
-use_small_data = False
-if use_small_data:
-    train_path = '/mnt/d/cs231n_data/train-jpg-small/'
-    test_path = '/mnt/d/cs231n_data/test-jpg-small/'
-    train = pd.read_csv('/mnt/d/cs231n_data/train_v2-small.csv')
-    test = pd.read_csv('/mnt/d/cs231n_data/sample_submission_v2-small.csv')
-    submission_file = '/mnt/d/cs231n_data/submission-small.csv'
-else:
-    train_path = '/mnt/d/cs231n_data/train-jpg/'
-    test_path = '/mnt/d/cs231n_data/test-jpg/'
-    train = pd.read_csv('/mnt/d/cs231n_data/train_v2.csv')
-    test = pd.read_csv('/mnt/d/cs231n_data/sample_submission_v2.csv')
-    submission_file = '/mnt/d/cs231n_data/submission.csv'
+train_path = '/mnt/d/cs231n_data/train-jpg/'
+train_label_file = '/mnt/d/cs231n_data/train_v2.csv'
+train = pd.read_csv(train_label_file)
+submission_file = '/mnt/d/cs231n_data/submission.csv'
 
-def extract_features(df, data_path):
-    im_features = df.copy()
+val_data = generate_val_dataset(label_file = train_label_file)
+
+def extract_features(df, data_path, isTrain):
+    im_features = pd.DataFrame()    #df.copy()
+
+    image_names = []
+    tags = []
 
     r_mean = []
     g_mean = []
@@ -63,7 +60,15 @@ def extract_features(df, data_path):
     b_skewness = []
     s_skewness = []
 
-    for image_name in tqdm(im_features.image_name.values, miniters=100): 
+    for index, row in tqdm(df.iterrows(), miniters=100):
+        image_name = row['image_name']
+
+        if isTrain == (image_name in val_data):
+            continue
+
+        image_names.append(image_name)
+        tags.append(row['tags'])
+
         im = Image.open(data_path + image_name + '.jpg')
         im = np.array(im)[:,:,:3]
         
@@ -102,6 +107,8 @@ def extract_features(df, data_path):
         b_skewness.append(scipy.stats.skew(b))
         s_skewness.append(scipy.stats.skew(s))
 
+    im_features['image_name'] = image_names
+    im_features['tags'] = tags
 
     im_features['r_mean'] = r_mean
     im_features['g_mean'] = g_mean
@@ -137,9 +144,9 @@ def extract_features(df, data_path):
 
 # Extract features
 print('Extracting train features')
-train_features = extract_features(train, train_path)
+train_features = extract_features(train, train_path, True)
 print('Extracting test features')
-test_features = extract_features(test, test_path)
+val_features = extract_features(train, train_path, False)
 
 # Prepare data
 X = np.array(train_features.drop(['image_name', 'tags'], axis=1))
@@ -151,7 +158,12 @@ labels = np.array(list(set(flatten([l.split(' ') for l in train_features['tags']
 label_map = {l: i for i, l in enumerate(labels)}
 inv_label_map = {i: l for l, i in label_map.items()}
 
-for tags in tqdm(train.tags.values, miniters=1000):
+for index, row in tqdm(train.iterrows(), miniters=100):
+    tags = row['tags']
+
+    if isTrain == (image_name in val_data):
+        continue
+        
     targets = np.zeros(17)
     for t in tags.split(' '):
         targets[label_map[t]] = 1 
@@ -164,7 +176,7 @@ print('y.shape = ' + str(y.shape))
 
 n_classes = y.shape[1]
 
-X_test = np.array(test_features.drop(['image_name', 'tags'], axis=1))
+X_test = np.array(val_features.drop(['image_name', 'tags'], axis=1))
 
 # Train and predict with one-vs-all strategy
 y_pred = np.zeros((X_test.shape[0], n_classes))
@@ -183,6 +195,6 @@ for class_i in tqdm(range(n_classes), miniters=1):
 preds = [' '.join(labels[y_pred_row > 0.21]) for y_pred_row in y_pred]
 
 subm = pd.DataFrame()
-subm['image_name'] = test_features.image_name.values
+subm['image_name'] = val_features.image_name.values
 subm['tags'] = preds
 subm.to_csv(submission_file, index=False)
