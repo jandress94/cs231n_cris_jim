@@ -50,11 +50,18 @@ coco-animals/
 """
 
 parser = argparse.ArgumentParser()
-# parser.add_argument('--train_dir', default='/mnt/d/cs231n_data/train-jpg-small/')
-parser.add_argument('--train_dir', default='/mnt/d/cs231n_data/train-jpg-small/')
-parser.add_argument('--train_labels_file', default = '/mnt/d/cs231n_data/train_v2-small.csv')
-parser.add_argument('--label_list_file', default = '/mnt/d/cs231n_data/labels.txt')
-parser.add_argument('--val_dir', default='coco-animals/val')
+parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-small/')
+#parser.add_argument('--train_dir', default='/mnt/d/cs231n_data/train-jpg-small/')
+parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2-small.csv')
+#parser.add_argument('--train_labels_file', default = '/mnt/d/cs231n_data/train_v2-small.csv')
+parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
+#parser.add_argument('--label_list_file', default = '/mnt/d/cs231n_data/labels.txt')
+
+parser.add_argument('--val_dir', default='../cs231n_data/train-jpg-small/')
+parser.add_argument('--val_labels_file', default='../cs231n_data/train_v2-small.csv')
+
+parser.add_argument('--save_path', default='../cs231n_data/saved_models/best_model.cris')
+
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
 parser.add_argument('--num_epochs1', default=10, type=int)
@@ -116,12 +123,7 @@ def main(args):
   train_dset = MultiLabelImageFolder(args.train_dir, args.train_labels_file, args.label_list_file, \
     transform=train_transform, target_transform = transform_target_to_1_0_vect)
 
-  for i in xrange(len(train_dset)):
-    print(train_dset[i])
-
-  sys.exit(0)
-
-
+  
   train_loader = DataLoader(train_dset,
                     batch_size=args.batch_size,
                     num_workers=args.num_workers,
@@ -137,7 +139,8 @@ def main(args):
     T.ToTensor(),
     T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
   ])
-  val_dset = ImageFolder(args.val_dir, transform=val_transform, target_transform = transform_target_to_1_0_vect)
+  val_dset = MultiLabelImageFolder(args.val_dir, args.val_labels_file, args.label_list_file, \
+	transform=val_transform, target_transform = transform_target_to_1_0_vect)
   val_loader = DataLoader(val_dset,
                   batch_size=args.batch_size,
                   num_workers=args.num_workers)
@@ -177,6 +180,9 @@ def main(args):
   # Construct an Optimizer object for updating the last layer only.
   optimizer = torch.optim.Adam(model.classifier.parameters(), lr=1e-3)
 
+  # set up to save the best model
+  max_f2 = -np.inf
+
   # Update only the last layer for a few epochs.
   for epoch in range(args.num_epochs1):
     # Run an epoch over the training data.
@@ -188,6 +194,10 @@ def main(args):
     val_f2 = check_f2(model, val_loader, dtype)
     print('Train f2: ', train_f2)
     print('Val f2: ', val_f2)
+    if val_f2 > max_f2:
+        print('found a new best!')
+        max_f2 = val_f2
+        torch.save(model.state_dict(), args.save_path)
     print()
 
   # Now we want to finetune the entire model for a few epochs. To do thise we
@@ -210,6 +220,10 @@ def main(args):
     val_f2 = check_f2(model, val_loader, dtype)
     print('Train f2: ', train_f2)
     print('Val f2: ', val_f2)
+    if val_f2 > max_f2:
+        print('found a new best!')
+        max_f2 = val_f2
+        torch.save(model.state_dict(), args.save_path)
     print()
 
 
@@ -219,7 +233,12 @@ def run_epoch(model, loss_fn, loader, optimizer, dtype):
   """
   # Set the model to training mode
   model.train()
+  mini_index = 0
+
   for x, y in loader:
+    mini_index += 1
+    if mini_index % 10 == 0: print('Running minibatch %d / %d' % (mini_index, len(loader)))
+
     # The DataLoader produces Torch Tensors, so we need to cast them to the
     # correct datatype and wrap them in Variables.
     #
@@ -228,7 +247,7 @@ def run_epoch(model, loss_fn, loader, optimizer, dtype):
     # (either torch.FloatTensor or torch.cuda.FloatTensor) and then cast to
     # long; this ensures that y has the correct type in both cases.
     x_var = Variable(x.type(dtype))
-    y_var = Variable(y.type(dtype).long())
+    y_var = Variable(y.type(dtype).float())
 
     # Run the model forward to compute scores and loss.
     scores = model(x_var)
@@ -240,7 +259,7 @@ def run_epoch(model, loss_fn, loader, optimizer, dtype):
     optimizer.step()
 
 
-def check_f2(model, loader, dtype):
+def check_f2(model, loader, dtype, eps = 1e-8):
   """
   Check the accuracy of the model.
   """
@@ -257,21 +276,26 @@ def check_f2(model, loader, dtype):
 
     normalized_scores = torch.sigmoid(scores)
 
-    thresholds = np.array([0.2625, 0.2375, 0.245, 0.21, 0.205, 0.1625, 0.265, 0.2175, 0.1925, 0.12, 0.2225, 0.14, 0.1375, 0.19, 0.085, 0.0475, 0.0875])
+    thresholds = torch.Tensor([0.2625, 0.2375, 0.245, 0.21, 0.205, 0.1625, 0.265, 0.2175, 0.1925, 0.12, 0.2225, 0.14, 0.1375, 0.19, 0.085, 0.0475, 0.0875]).type(dtype)
+    thresholds = torch.cat([thresholds for _ in range(x.size(0))], 0)
 
-    preds = scores.data.cpu() >= thresholds
+    preds = scores.data >= thresholds
 
-    fp = np.sum(np.maximum(preds - y, 0), axis = 1)
-    fn = np.sum(np.maximum(y - preds, 0), axis = 1)
-    tp = np.sum((y == preds) * y, axis = 1)
+    preds = preds.cpu()
 
-    p = 1.0 * tp / (tp + fp)
-    r = 1.0 * tp / (tp + fn)
+    y = y.byte()
+
+    fp = torch.sum(preds > y, 1).float()
+    fn = torch.sum(y - preds, 1).float()
+    tp = torch.sum((y == preds) * y, 1).float()
+
+    p = 1.0 * tp / (tp + fp + eps)
+    r = 1.0 * tp / (tp + fn + eps)
     beta = 2
 
-    f2 = (1.0 + beta**2)*p*r / (beta**2 * p + r)
+    f2 = (1.0 + beta**2)*p*r / (beta**2 * p + r + eps)
 
-    running_f2 += np.sum(f2)
+    running_f2 += torch.sum(f2)
     num_samples += x.size(0)
 
   f2 = running_f2 / num_samples
