@@ -50,15 +50,15 @@ coco-animals/
 """
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-small/')
+parser.add_argument('--train_dir', default='../cs231n_data/train-jpg/')
 #parser.add_argument('--train_dir', default='/mnt/d/cs231n_data/train-jpg-small/')
-parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2-small.csv')
+parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2.csv')
 #parser.add_argument('--train_labels_file', default = '/mnt/d/cs231n_data/train_v2-small.csv')
 parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
 #parser.add_argument('--label_list_file', default = '/mnt/d/cs231n_data/labels.txt')
 
-parser.add_argument('--val_dir', default='../cs231n_data/train-jpg-small/')
-parser.add_argument('--val_labels_file', default='../cs231n_data/train_v2-small.csv')
+parser.add_argument('--val_dir', default='../cs231n_data/val-jpg/')
+parser.add_argument('--val_labels_file', default='../cs231n_data/val_v2.csv')
 
 parser.add_argument('--save_path', default='../cs231n_data/saved_models/best_model.cris')
 
@@ -227,6 +227,11 @@ def main(args):
     print()
 
 
+def print_progress(index, collection, prompt, print_every = 25, loss = None):
+    if index % print_every == 0:
+        if loss is None: print('%s %d / %d' % (prompt, index, len(collection)))
+        else: print('%s %d / %d   loss: %f' % (prompt, index, len(collection), loss))
+
 def run_epoch(model, loss_fn, loader, optimizer, dtype):
   """
   Train the model for one epoch.
@@ -235,9 +240,11 @@ def run_epoch(model, loss_fn, loader, optimizer, dtype):
   model.train()
   mini_index = 0
 
+  running_loss = 0.0
+
   for x, y in loader:
     mini_index += 1
-    if mini_index % 10 == 0: print('Running minibatch %d / %d' % (mini_index, len(loader)))
+    print_progress(mini_index, loader, 'Running minibatch', loss = running_loss)
 
     # The DataLoader produces Torch Tensors, so we need to cast them to the
     # correct datatype and wrap them in Variables.
@@ -252,6 +259,10 @@ def run_epoch(model, loss_fn, loader, optimizer, dtype):
     # Run the model forward to compute scores and loss.
     scores = model(x_var)
     loss = loss_fn(scores, y_var)
+    if mini_index == 1:
+        running_loss = loss.data.cpu().numpy()[0]
+    else:
+        running_loss = 0.99 * running_loss + 0.01 * loss.data.cpu().numpy()[0]
 
     # Run the model backward and take a step using the optimizer.
     optimizer.zero_grad()
@@ -266,7 +277,12 @@ def check_f2(model, loader, dtype, eps = 1e-8):
   # Set the model to eval mode
   model.eval()
   running_f2, num_samples = 0.0, 0
+
+  mini_index = 0
+
   for x, y in loader:
+    mini_index += 1
+    print_progress(mini_index, loader, 'Evaluating minibatch')
     # Cast the image data to the correct type and wrap it in a Variable. At
     # test-time when we do not need to compute gradients, marking the Variable
     # as volatile can reduce memory usage and slightly improve speed.
@@ -285,12 +301,12 @@ def check_f2(model, loader, dtype, eps = 1e-8):
 
     y = y.byte()
 
-    fp = torch.sum(preds > y, 1).float()
-    fn = torch.sum(y - preds, 1).float()
+    pred_pos = torch.sum(preds, 1).float()
+    real_pos = torch.sum(y, 1).float()
     tp = torch.sum((y == preds) * y, 1).float()
 
-    p = 1.0 * tp / (tp + fp + eps)
-    r = 1.0 * tp / (tp + fn + eps)
+    p = 1.0 * tp / (pred_pos + eps)
+    r = 1.0 * tp / (real_pos + eps)
     beta = 2
 
     f2 = (1.0 + beta**2)*p*r / (beta**2 * p + r + eps)
