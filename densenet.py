@@ -50,10 +50,10 @@ coco-animals/
 """
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--train_dir', default='../cs231n_data/train-jpg/')
-#parser.add_argument('--train_dir', default='/mnt/d/cs231n_data/train-jpg-small/')
-parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2.csv')
-#parser.add_argument('--train_labels_file', default = '/mnt/d/cs231n_data/train_v2-small.csv')
+#parser.add_argument('--train_dir', default='../cs231n_data/train-jpg/')
+parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-small/')
+#parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2.csv')
+parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2-small.csv')
 parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
 #parser.add_argument('--label_list_file', default = '/mnt/d/cs231n_data/labels.txt')
 
@@ -70,6 +70,8 @@ parser.add_argument('--use_gpu', action='store_true')
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
+
+label_thresholds = np.zeros((17,))
 
 
 def main(args):
@@ -190,14 +192,14 @@ def main(args):
     run_epoch(model, loss_fn, train_loader, optimizer, dtype)
 
     # Check accuracy on the train and val sets.
+    val_f2 = check_f2(model, val_loader, dtype, recomp_thresh = True)
     train_f2 = check_f2(model, train_loader, dtype)
-    val_f2 = check_f2(model, val_loader, dtype)
-    print('Train f2: ', train_f2)
     print('Val f2: ', val_f2)
     if val_f2 > max_f2:
         print('found a new best!')
         max_f2 = val_f2
         torch.save(model.state_dict(), args.save_path)
+    print('Train f2: ', train_f2)
     print()
 
   # Now we want to finetune the entire model for a few epochs. To do thise we
@@ -216,21 +218,22 @@ def main(args):
     print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs2))
     run_epoch(model, loss_fn, train_loader, optimizer, dtype)
 
+    val_f2 = check_f2(model, val_loader, dtype, recomp_thresh = True)
     train_f2 = check_f2(model, train_loader, dtype)
-    val_f2 = check_f2(model, val_loader, dtype)
-    print('Train f2: ', train_f2)
     print('Val f2: ', val_f2)
     if val_f2 > max_f2:
         print('found a new best!')
         max_f2 = val_f2
         torch.save(model.state_dict(), args.save_path)
+    print('Train f2: ', train_f2)
     print()
 
 
-def print_progress(index, collection, prompt, print_every = 25, loss = None):
+def print_progress(index, collection_len, prompt, print_every = 25, loss = None):
     if index % print_every == 0:
-        if loss is None: print('%s %d / %d' % (prompt, index, len(collection)))
-        else: print('%s %d / %d   loss: %f' % (prompt, index, len(collection), loss))
+        total = collection_len if isinstance(collection_len, int) else len(collection_len)
+        if loss is None: print('%s %d / %d' % (prompt, index, total))
+        else: print('%s %d / %d   loss: %f' % (prompt, index, total, loss))
 
 def run_epoch(model, loss_fn, loader, optimizer, dtype):
   """
@@ -270,17 +273,74 @@ def run_epoch(model, loss_fn, loader, optimizer, dtype):
     optimizer.step()
 
 
-def check_f2(model, loader, dtype, eps = 1e-8):
+def compute_f2(scores, y, threshold, axis, eps = 1e-8):
+  preds = scores >= threshold
+  preds = preds.cpu()
+
+  y = y.byte()
+    
+  pred_pos = torch.sum(preds, axis).float()
+  real_pos = torch.sum(y, axis).float()
+  true_pos = torch.sum((y == preds) * y, axis).float()
+  
+  p = 1.0 * true_pos / (pred_pos + eps)
+  r = 1.0 * true_pos / (real_pos + eps)
+  
+  beta = 2
+  return (1.0 + beta**2)*p*r / (beta**2 * p + r + eps)
+
+
+def recompute_thresholds(model, loader, dtype, eps = 1e-8):
+  scores_list = []
+  ys = []
+
+  for x, y in loader:
+    x_var = Variable(x.type(dtype), volatile = True)
+    scores = model(x_var)
+    normalized_scores = torch.sigmoid(scores)
+    scores_list.append(normalized_scores)
+    ys.append(y)
+
+  scores = torch.cat(scores_list, 0).data
+  ys = torch.cat(ys, 0)
+
+  best_thresh = np.zeros((17,))
+  best_f2 = np.ones((17,)) * (-np.inf)
+
+  for t in range(200):
+    print_progress(t, 200, 'Recomputing thresholds')
+    thresh = (1 + t) * 0.005
+    
+    f2 = compute_f2(scores, y, thresh, 0).numpy()
+
+    better_mask = f2 > best_f2
+    best_thresh = (1 - better_mask) * best_thresh + better_mask * thresh
+    best_f2 = (1 - better_mask) * best_f2 + better_mask * f2
+
+  return best_thresh
+
+
+def check_f2(model, loader, dtype, recomp_thresh = False, eps = 1e-8):
   """
   Check the accuracy of the model.
   """
   # Set the model to eval mode
   model.eval()
-  running_f2, num_samples = 0.0, 0
 
+  if recomp_thresh: 
+    label_thresholds = recompute_thresholds(model, loader, dtype)
+    print('Computed new thresholds:', label_thresholds)
+
+  running_f2, num_samples = 0.0, 0
   mini_index = 0
 
+  #thresholds = torch.Tensor([0.2625, 0.2375, 0.245, 0.21, 0.205, 0.1625, 0.265, 0.2175, 0.1925, 0.12, 0.2225, 0.14, 0.1375, 0.19, 0.085, 0.0475, 0.0875]).type(dtype)
+  thresholds = torch.Tensor(label_thresholds).type(dtype)
+
   for x, y in loader:
+    if thresholds.dim() == 1:
+      thresholds = torch.cat([thresholds for _ in range(x.size(0))], 0)
+
     mini_index += 1
     print_progress(mini_index, loader, 'Evaluating minibatch')
     # Cast the image data to the correct type and wrap it in a Variable. At
@@ -289,28 +349,9 @@ def check_f2(model, loader, dtype, eps = 1e-8):
     x_var = Variable(x.type(dtype), volatile=True)
 
     scores = model(x_var)
-
     normalized_scores = torch.sigmoid(scores)
 
-    thresholds = torch.Tensor([0.2625, 0.2375, 0.245, 0.21, 0.205, 0.1625, 0.265, 0.2175, 0.1925, 0.12, 0.2225, 0.14, 0.1375, 0.19, 0.085, 0.0475, 0.0875]).type(dtype)
-    thresholds = torch.cat([thresholds for _ in range(x.size(0))], 0)
-
-    preds = scores.data >= thresholds
-
-    preds = preds.cpu()
-
-    y = y.byte()
-
-    pred_pos = torch.sum(preds, 1).float()
-    real_pos = torch.sum(y, 1).float()
-    tp = torch.sum((y == preds) * y, 1).float()
-
-    p = 1.0 * tp / (pred_pos + eps)
-    r = 1.0 * tp / (real_pos + eps)
-    beta = 2
-
-    f2 = (1.0 + beta**2)*p*r / (beta**2 * p + r + eps)
-
+    f2 = compute_f2(normalized_scores.data, y, thresholds, 1)
     running_f2 += torch.sum(f2)
     num_samples += x.size(0)
 
