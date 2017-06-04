@@ -156,10 +156,12 @@ def main(args):
   # all model parameters, then set requires_grad=True for the parameters in the
   # last layer only.
   other_params = []
+  params_set = set()
   for param in model.parameters():
     param.requires_grad = True
-    if param not in model.classifier.parameters():
-    	other_params.append(param)
+    params_set.add(param)
+  for param in model.classifier.parameters():
+    params_set.remove(param)
   
   lr1 = args.lr1
   lr2 = args.lr2
@@ -188,7 +190,7 @@ def main(args):
     if val_f2 > max_f2:
         print('found a new best!')
         max_f2 = val_f2
-        torch.save(model.state_dict(), args.save_path)
+        torch.save(model.state_dict(), args.save_model_path)
         np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
     print('Train f2: ', train_f2)
     print()

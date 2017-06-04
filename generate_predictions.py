@@ -107,17 +107,18 @@ def main(args):
 
     normalized_scores = normalized_scores.data
     preds = normalized_scores >= thresholds
-
+    preds = preds.cpu().numpy()
     # make sure that at least one class is predicted for each
-    num_predicted = torch.sum(preds, 1)
+    num_predicted = np.sum(preds, 1, keepdims=True)
     no_preds = num_predicted == 0
+    no_preds = no_preds.astype(np.int)
 
-    _, indices = torch.max(normalized_scores, 1)
-    backup_preds = torch.zeros(preds.size(0), preds.size(1)).byte()
+    indices = np.argmax(normalized_scores.cpu().numpy(), 1)
+    backup_preds = np.zeros_like(preds)
     backup_preds[indices] = no_preds
     preds += backup_preds
 
-    preds = preds.cpu().numpy()
+    #preds = preds.numpy()
 
     y_pred[count:count + x.size(0), :] = preds
     filenames_list += filenames
