@@ -29,7 +29,7 @@ parser.add_argument('--save_model_path', default='../cs231n_data/saved_models/be
 parser.add_argument('--save_thresholds_path', default='../cs231n_data/saved_models/best_thresh.npy')
 parser.add_argument('--save_loss_path', default='../cs231n_data/saved_models/loss.txt')
 
-parser.add_argument('--batch_size', default=32, type=int)
+parser.add_argument('--batch_size', default=64, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
 parser.add_argument('--num_epochs', default=30, type=int)
 #parser.add_argument('--num_epochs1', default=3, type=int)
