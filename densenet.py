@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 import sys
 
 import numpy as np
+#from sklearn.metrics import fbeta_score
 
 import torchvision
 import torchvision.transforms as T
@@ -50,12 +51,11 @@ coco-animals/
 """
 
 parser = argparse.ArgumentParser()
-#parser.add_argument('--train_dir', default='../cs231n_data/train-jpg/')
-parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-small/')
-#parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2.csv')
-parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2-small.csv')
+parser.add_argument('--train_dir', default='../cs231n_data/train-jpg/')
+#parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-small/')
+parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2.csv')
+#parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2-small.csv')
 parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
-#parser.add_argument('--label_list_file', default = '/mnt/d/cs231n_data/labels.txt')
 
 parser.add_argument('--val_dir', default='../cs231n_data/val-jpg/')
 parser.add_argument('--val_labels_file', default='../cs231n_data/val_v2.csv')
@@ -64,7 +64,7 @@ parser.add_argument('--save_path', default='../cs231n_data/saved_models/best_mod
 
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
-parser.add_argument('--num_epochs1', default=10, type=int)
+parser.add_argument('--num_epochs1', default=3, type=int)
 parser.add_argument('--num_epochs2', default=10, type=int)
 parser.add_argument('--use_gpu', action='store_true')
 
@@ -229,7 +229,7 @@ def main(args):
     print()
 
 
-def print_progress(index, collection_len, prompt, print_every = 25, loss = None):
+def print_progress(index, collection_len, prompt, print_every = 10, loss = None):
     if index % print_every == 0:
         total = collection_len if isinstance(collection_len, int) else len(collection_len)
         if loss is None: print('%s %d / %d' % (prompt, index, total))
@@ -275,20 +275,18 @@ def run_epoch(model, loss_fn, loader, optimizer, dtype):
 
 def compute_f2(scores, y, threshold, axis, eps = 1e-8):
   preds = scores >= threshold
-  preds = preds.cpu()
-
-  y = y.byte()
+  preds = preds.cpu().int()
+  y = y.int()
     
   pred_pos = torch.sum(preds, axis).float()
   real_pos = torch.sum(y, axis).float()
-  true_pos = torch.sum((y == preds) * y, axis).float()
+  true_pos = torch.sum(y * preds, axis).float()
   
   p = 1.0 * true_pos / (pred_pos + eps)
   r = 1.0 * true_pos / (real_pos + eps)
-  
+
   beta = 2
   return (1.0 + beta**2)*p*r / (beta**2 * p + r + eps)
-
 
 def recompute_thresholds(model, loader, dtype, eps = 1e-8):
   scores_list = []
@@ -305,15 +303,16 @@ def recompute_thresholds(model, loader, dtype, eps = 1e-8):
   ys = torch.cat(ys, 0)
 
   best_thresh = np.zeros((17,))
-  best_f2 = np.ones((17,)) * (-np.inf)
+  best_f2 = -np.ones((17,))
 
-  for t in range(200):
-    print_progress(t, 200, 'Recomputing thresholds')
-    thresh = (1 + t) * 0.005
-    
-    f2 = compute_f2(scores, y, thresh, 0).numpy()
+  for t in range(1000):
+    print_progress(t, 1000, 'Recomputing thresholds')
+    thresh = (1 + t) * 0.001
+
+    f2 = compute_f2(scores, ys, thresh, 0).numpy()
 
     better_mask = f2 > best_f2
+    better_mask = better_mask.astype(np.int)
     best_thresh = (1 - better_mask) * best_thresh + better_mask * thresh
     best_f2 = (1 - better_mask) * best_f2 + better_mask * f2
 
@@ -324,6 +323,7 @@ def check_f2(model, loader, dtype, recomp_thresh = False, eps = 1e-8):
   """
   Check the accuracy of the model.
   """
+  global label_thresholds
   # Set the model to eval mode
   model.eval()
 
@@ -338,7 +338,8 @@ def check_f2(model, loader, dtype, recomp_thresh = False, eps = 1e-8):
   thresholds = torch.Tensor(label_thresholds).type(dtype)
 
   for x, y in loader:
-    if thresholds.dim() == 1:
+    if thresholds.size() != y.size():
+      thresholds = torch.Tensor(label_thresholds).type(dtype)
       thresholds = torch.cat([thresholds for _ in range(x.size(0))], 0)
 
     mini_index += 1
