@@ -13,42 +13,6 @@ import torchvision.transforms as T
 from MultiLabelImageFolder import *
 from torchvision.datasets import ImageFolder
 
-"""
-Example PyTorch script for finetuning a ResNet model on your own data.
-For this example we will use a tiny dataset of images from the COCO dataset.
-We have chosen eight types of animals (bear, bird, cat, dog, giraffe, horse,
-sheep, and zebra); for each of these categories we have selected 100 training
-images and 25 validation images from the COCO dataset. You can download and
-unpack the data (176 MB) by running:
-wget cs231n.stanford.edu/coco-animals.zip
-unzip coco-animals.zip
-rm coco-animals.zip
-The training data is stored on disk; each category has its own folder on disk
-and the images for that category are stored as .jpg files in the category folder.
-In other words, the directory structure looks something like this:
-coco-animals/
-  train/
-    bear/
-      COCO_train2014_000000005785.jpg
-      COCO_train2014_000000015870.jpg
-      [...]
-    bird/
-    cat/
-    dog/
-    giraffe/
-    horse/
-    sheep/
-    zebra/
-  val/
-    bear/
-    bird/
-    cat/
-    dog/
-    giraffe/
-    horse/
-    sheep/
-    zebra/
-"""
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_dir', default='../cs231n_data/train-jpg/')
