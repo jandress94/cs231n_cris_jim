@@ -29,7 +29,7 @@ parser.add_argument('--use_gpu', action='store_true')
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
-#label_thresholds = np.array([[ 0.174,  0.157,  0.11,   0.084,  0.125,  0.127,  0.078,  0.187,  0.225,  0.172,  0.049,  0.128,  0.267,  0.056,  0.03,   0.014,  0.273]])
+label_thresholds = np.array([[ 0.174,  0.157,  0.11,   0.084,  0.125,  0.127,  0.078,  0.187,  0.225,  0.172,  0.049,  0.128,  0.267,  0.056,  0.03,   0.014,  0.273]])
 
 def find_classes(label_list_file):
     f = open(label_list_file)
@@ -38,6 +38,7 @@ def find_classes(label_list_file):
     return classes
 
 def main(args):
+  global label_thresholds
 
   # Figure out the datatype we will use; this will determine whether we run on
   # CPU or on GPU. Run on GPU by adding the command-line flag --use_gpu
@@ -85,7 +86,7 @@ def main(args):
   model.eval()
 
 
-  label_thresholds = np.load(args.save_thresholds_path, allow_pickle = False)
+  #label_thresholds = np.load(args.save_thresholds_path, allow_pickle = False)
   thresholds = torch.Tensor(label_thresholds).type(dtype)
   classes = find_classes(args.label_list_file)
 
@@ -95,18 +96,33 @@ def main(args):
   count = 0
   for x, filenames in test_loader:
     print_progress(count, len(test_dset), 'Running example')
+
     x_var = Variable(x.type(dtype), volatile = True)
     scores = model(x_var)
     normalized_scores = torch.sigmoid(scores)
+
     if thresholds.size(0) != x.size(0):
       thresholds = torch.Tensor(label_thresholds).type(dtype)
       thresholds = torch.cat([thresholds for _ in range(x.size(0))], 0)
-    scores = scores.data
-    preds = scores >= thresholds
+
+    normalized_scores = normalized_scores.data
+    preds = normalized_scores >= thresholds
+
+    # make sure that at least one class is predicted for each
+    num_predicted = torch.sum(preds, 1)
+    no_preds = num_predicted == 0
+
+    _, indices = torch.max(normalized_scores, 1)
+    backup_preds = torch.zeros(preds.size(0), preds.size(1)).byte()
+    backup_preds[indices] = no_preds
+    preds += backup_preds
+
     preds = preds.cpu().numpy()
+
     y_pred[count:count + x.size(0), :] = preds
     filenames_list += filenames
     count += x.size(0)
+
   y_pred = y_pred.astype(np.int)
   predictions = [' '.join(classes[y_pred_row == 1]) for y_pred_row in y_pred]
 
