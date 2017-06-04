@@ -29,13 +29,13 @@ parser.add_argument('--save_model_path', default='../cs231n_data/saved_models/be
 parser.add_argument('--save_thresholds_path', default='../cs231n_data/saved_models/best_thresh.npy')
 parser.add_argument('--save_loss_path', default='../cs231n_data/saved_models/loss.txt')
 
-parser.add_argument('--batch_size', default=64, type=int)
+parser.add_argument('--batch_size', default=96, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
 parser.add_argument('--num_epochs', default=30, type=int)
 #parser.add_argument('--num_epochs1', default=3, type=int)
 #parser.add_argument('--num_epochs2', default=10, type=int)
-parser.add_argument('--lr1', default=1e-2, type=float)
-parser.add_argument('--lr2', default=1e-3, type=float)
+parser.add_argument('--lr1', default=1e-1, type=float)
+parser.add_argument('--lr2', default=1e-2, type=float)
 parser.add_argument('--use_gpu', action='store_true')
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
@@ -176,11 +176,12 @@ def main(args):
   for epoch in range(args.num_epochs):
     # Run an epoch over the training data.
     print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs))
-    if epoch != 0  and epoch % 10 == 0:
-    	lr1 /= 10.
-    	lr2 /= 10.
+    if epoch >= 10 and epoch <20:
     	optimizer = torch.optim.Adam([{'params' : other_params}, 
-  	                 {'params' : model.fc.parameters(), 'lr' : lr1}], lr = lr2)
+  	                 {'params' : model.fc.parameters(), 'lr' : 0.01}], lr = 0.005)
+    elif epoch >= 20:
+      optimizer = torch.optim.Adam([{'params' : other_params}, 
+                     {'params' : model.fc.parameters(), 'lr' : 0.005}], lr = 0.001)
     run_epoch(model, loss_fn, train_loader, optimizer, dtype, args.save_loss_path)
 
     # Check accuracy on the train and val sets.
