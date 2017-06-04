@@ -22,7 +22,7 @@ def make_dataset(dir):
         d = os.path.join(dir, target)
 
         if is_image_file(d):
-            images.append((d, target))
+            images.append((d, target.split('.')[0]))
 
     return images
 

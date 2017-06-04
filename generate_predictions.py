@@ -10,7 +10,7 @@ import pandas as pd
 
 import torchvision
 import torchvision.transforms as T
-from MultiLabelImageFolder import *
+from MultiLabelImageFolderTest import *
 from torchvision.datasets import ImageFolder
 
 parser = argparse.ArgumentParser()
@@ -90,20 +90,21 @@ def main(args):
 
   count = 0
   for x, filenames in test_loader:
-  	print_progress(count, len(test_dset), 'Running example')
+    print_progress(count, len(test_dset), 'Running example')
     x_var = Variable(x.type(dtype), volatile = True)
     scores = model(x_var)
     normalized_scores = torch.sigmoid(scores)
     if thresholds.size(0) != x.size(0):
       thresholds = torch.Tensor(label_thresholds).type(dtype)
       thresholds = torch.cat([thresholds for _ in range(x.size(0))], 0)
-    preds = scores >= threshold
+    scores = scores.data
+    preds = scores >= thresholds
     preds = preds.cpu().numpy()
     y_pred[count:count + x.size(0), :] = preds
     filenames_list += filenames
     count += x.size(0)
-  
-  predictions = [' '.join(classes[y_pred_row]) for y_pred_row in y_pred]
+  y_pred = y_pred.astype(np.int)
+  predictions = [' '.join(classes[y_pred_row == 1]) for y_pred_row in y_pred]
 
   subm = pd.DataFrame()
   subm['image_name'] = filenames_list
