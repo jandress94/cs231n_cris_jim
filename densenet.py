@@ -31,8 +31,11 @@ parser.add_argument('--save_loss_path', default='../cs231n_data/saved_models/los
 
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
-parser.add_argument('--num_epochs1', default=3, type=int)
-parser.add_argument('--num_epochs2', default=10, type=int)
+parser.add_argument('--num_epochs', default=30, type=int)
+#parser.add_argument('--num_epochs1', default=3, type=int)
+#parser.add_argument('--num_epochs2', default=10, type=int)
+parser.add_argument('--lr1', default=1e-2, type=float)
+parser.add_argument('--lr2', default=1e-3, type=float)
 parser.add_argument('--use_gpu', action='store_true')
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
@@ -152,51 +155,33 @@ def main(args):
   # other weights of the model, so we set the requires_grad flag to False for
   # all model parameters, then set requires_grad=True for the parameters in the
   # last layer only.
+  other_params = []
   for param in model.parameters():
-    param.requires_grad = False
-  for param in model.classifier.parameters():
     param.requires_grad = True
-
+    if param not in model.classifier.parameters():
+    	other_params.append(param)
+  
+  lr1 = args.lr1
+  lr2 = args.lr2
   # Construct an Optimizer object for updating the last layer only.
-  optimizer = torch.optim.Adam(model.classifier.parameters(), lr=1e-3)
+  optimizer = torch.optim.Adam([{'params' : other_params}, 
+  	{'params' : model.classifier.parameters(), 'lr' : lr1}], lr = lr2)
 
   # set up to save the best model
   max_f2 = -np.inf
 
   # Update only the last layer for a few epochs.
-  for epoch in range(args.num_epochs1):
+  for epoch in range(args.num_epochs):
     # Run an epoch over the training data.
-    print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs1))
+    print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs))
+    if epoch != 0  and epoch % 10 == 0:
+    	lr1 /= 10.
+    	lr2 /= 10.
+    	optimizer = torch.optim.Adam([{'params' : other_params}, 
+  	                 {'params' : model.classifier.parameters(), 'lr' : lr1}], lr = lr2)
     run_epoch(model, loss_fn, train_loader, optimizer, dtype, args.save_loss_path)
 
     # Check accuracy on the train and val sets.
-    val_f2 = check_f2(model, val_loader, dtype, recomp_thresh = True)
-    train_f2 = check_f2(model, train_loader, dtype)
-    print('Val f2: ', val_f2)
-    if val_f2 > max_f2:
-        print('found a new best!')
-        max_f2 = val_f2
-        torch.save(model.state_dict(), args.save_path)
-        np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
-    print('Train f2: ', train_f2)
-    print()
-
-  # Now we want to finetune the entire model for a few epochs. To do thise we
-  # will need to compute gradients with respect to all model parameters, so
-  # we flag all parameters as requiring gradients.
-  for param in model.parameters():
-    param.requires_grad = True
-  
-  # Construct a new Optimizer that will update all model parameters. Note the
-  # small learning rate.
-  optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
-
-  # Train the entire model for a few more epochs, checking accuracy on the
-  # train and validation sets after each epoch.
-  for epoch in range(args.num_epochs2):
-    print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs2))
-    run_epoch(model, loss_fn, train_loader, optimizer, dtype, args.save_loss_path)
-
     val_f2 = check_f2(model, val_loader, dtype, recomp_thresh = True)
     train_f2 = check_f2(model, train_loader, dtype)
     print('Val f2: ', val_f2)
