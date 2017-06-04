@@ -143,7 +143,7 @@ def main(args):
   # we see that the final fully-connected layer is stored in model.classifier:
   # https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py#L111
   num_classes = len(train_dset.classes)
-  model.classifier = nn.Linear(model.classifier.in_features, num_classes)
+  model.fc = nn.Linear(model.fc.in_features, num_classes)
 
   # Cast the model to the correct datatype, and create a loss function for
   # training the model.
@@ -160,14 +160,14 @@ def main(args):
   for param in model.parameters():
     param.requires_grad = True
     params_set.add(param)
-  for param in model.classifier.parameters():
+  for param in model.fc.parameters():
     params_set.remove(param)
   
   lr1 = args.lr1
   lr2 = args.lr2
   # Construct an Optimizer object for updating the last layer only.
   optimizer = torch.optim.Adam([{'params' : other_params}, 
-  	{'params' : model.classifier.parameters(), 'lr' : lr1}], lr = lr2)
+  	{'params' : model.fc.parameters(), 'lr' : lr1}], lr = lr2)
 
   # set up to save the best model
   max_f2 = -np.inf
@@ -180,7 +180,7 @@ def main(args):
     	lr1 /= 10.
     	lr2 /= 10.
     	optimizer = torch.optim.Adam([{'params' : other_params}, 
-  	                 {'params' : model.classifier.parameters(), 'lr' : lr1}], lr = lr2)
+  	                 {'params' : model.fc.parameters(), 'lr' : lr1}], lr = lr2)
     run_epoch(model, loss_fn, train_loader, optimizer, dtype, args.save_loss_path)
 
     # Check accuracy on the train and val sets.
