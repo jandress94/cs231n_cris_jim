@@ -20,6 +20,7 @@ parser.add_argument('--sub_file', default='../cs231n_data/submission.csv')
 parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
 
 parser.add_argument('--save_path', default='../cs231n_data/saved_models/best_model.cris')
+parser.add_argument('--save_thresholds_path', default='../cs231n_data/saved_models/best_thresh.npy')
 
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
@@ -28,7 +29,7 @@ parser.add_argument('--use_gpu', action='store_true')
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
-label_thresholds = np.array([[ 0.174,  0.157,  0.11,   0.084,  0.125,  0.127,  0.078,  0.187,  0.225,  0.172,  0.049,  0.128,  0.267,  0.056,  0.03,   0.014,  0.273]])
+#label_thresholds = np.array([[ 0.174,  0.157,  0.11,   0.084,  0.125,  0.127,  0.078,  0.187,  0.225,  0.172,  0.049,  0.128,  0.267,  0.056,  0.03,   0.014,  0.273]])
 
 def find_classes(label_list_file):
     f = open(label_list_file)
@@ -37,6 +38,7 @@ def find_classes(label_list_file):
     return classes
 
 def main(args):
+
   # Figure out the datatype we will use; this will determine whether we run on
   # CPU or on GPU. Run on GPU by adding the command-line flag --use_gpu
   dtype = torch.FloatTensor
@@ -82,6 +84,8 @@ def main(args):
 
   model.eval()
 
+
+  label_thresholds = np.load(args.save_thresholds_path, allow_pickle = False)
   thresholds = torch.Tensor(label_thresholds).type(dtype)
   classes = find_classes(args.label_list_file)
 

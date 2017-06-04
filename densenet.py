@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 import sys
 
 import numpy as np
+import os
 #from sklearn.metrics import fbeta_score
 
 import torchvision
@@ -24,7 +25,9 @@ parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
 parser.add_argument('--val_dir', default='../cs231n_data/val-jpg/')
 parser.add_argument('--val_labels_file', default='../cs231n_data/val_v2.csv')
 
-parser.add_argument('--save_path', default='../cs231n_data/saved_models/best_model.cris')
+parser.add_argument('--save_model_path', default='../cs231n_data/saved_models/best_model.cris')
+parser.add_argument('--save_thresholds_path', default='../cs231n_data/saved_models/best_thresh.npy')
+parser.add_argument('--save_loss_path', default='../cs231n_data/saved_models/loss.txt')
 
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
@@ -39,6 +42,17 @@ label_thresholds = np.zeros((17,))
 
 
 def main(args):
+
+  if os.path.isfile(args.save_model_path):
+    print('The model file %s already exists' % (args.save_model_path))
+    sys.exit(1)
+  elif os.path.isfile(args.save_thresholds_path):
+    print('The thresholds file %s already exists' % (args.save_thresholds_path))
+    sys.exit(1)
+  elif os.path.isfile(args.save_loss_path):
+    print('The loss file %s already exists' % (args.save_loss_path))
+    sys.exit(1)
+
   # Figure out the datatype we will use; this will determine whether we run on
   # CPU or on GPU. Run on GPU by adding the command-line flag --use_gpu
   dtype = torch.FloatTensor
@@ -153,7 +167,7 @@ def main(args):
   for epoch in range(args.num_epochs1):
     # Run an epoch over the training data.
     print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs1))
-    run_epoch(model, loss_fn, train_loader, optimizer, dtype)
+    run_epoch(model, loss_fn, train_loader, optimizer, dtype, args.save_loss_path)
 
     # Check accuracy on the train and val sets.
     val_f2 = check_f2(model, val_loader, dtype, recomp_thresh = True)
@@ -163,6 +177,7 @@ def main(args):
         print('found a new best!')
         max_f2 = val_f2
         torch.save(model.state_dict(), args.save_path)
+        np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
     print('Train f2: ', train_f2)
     print()
 
@@ -180,7 +195,7 @@ def main(args):
   # train and validation sets after each epoch.
   for epoch in range(args.num_epochs2):
     print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs2))
-    run_epoch(model, loss_fn, train_loader, optimizer, dtype)
+    run_epoch(model, loss_fn, train_loader, optimizer, dtype, args.save_loss_path)
 
     val_f2 = check_f2(model, val_loader, dtype, recomp_thresh = True)
     train_f2 = check_f2(model, train_loader, dtype)
@@ -189,6 +204,7 @@ def main(args):
         print('found a new best!')
         max_f2 = val_f2
         torch.save(model.state_dict(), args.save_path)
+        np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
     print('Train f2: ', train_f2)
     print()
 
@@ -199,7 +215,7 @@ def print_progress(index, collection_len, prompt, print_every = 10, loss = None)
         if loss is None: print('%s %d / %d' % (prompt, index, total))
         else: print('%s %d / %d   loss: %f' % (prompt, index, total, loss))
 
-def run_epoch(model, loss_fn, loader, optimizer, dtype):
+def run_epoch(model, loss_fn, loader, optimizer, dtype, save_loss_path):
   """
   Train the model for one epoch.
   """
@@ -208,6 +224,7 @@ def run_epoch(model, loss_fn, loader, optimizer, dtype):
   mini_index = 0
 
   running_loss = 0.0
+  loss_list = []
 
   for x, y in loader:
     mini_index += 1
@@ -226,16 +243,22 @@ def run_epoch(model, loss_fn, loader, optimizer, dtype):
     # Run the model forward to compute scores and loss.
     scores = model(x_var)
     loss = loss_fn(scores, y_var)
+
+    loss_num = loss.data.cpu().numpy()[0]
+    loss_list.append(loss_num)
     if mini_index == 1:
-        running_loss = loss.data.cpu().numpy()[0]
+        running_loss = loss_num
     else:
-        running_loss = 0.99 * running_loss + 0.01 * loss.data.cpu().numpy()[0]
+        running_loss = 0.9 * running_loss + 0.1 * loss_num
 
     # Run the model backward and take a step using the optimizer.
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
+  with open(save_loss_path, "a") as loss_file:
+    for loss in loss_list:
+        loss_file.write("%f\n" % (loss))
 
 def compute_f2(scores, y, threshold, axis, eps = 1e-8):
   preds = scores >= threshold
