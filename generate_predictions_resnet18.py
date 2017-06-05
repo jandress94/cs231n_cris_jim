@@ -175,7 +175,7 @@ def main(args):
   # we see that the final fully-connected layer is stored in model.classifier:
   # https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py#L111
   num_classes = 17
-  model.classifier = nn.Linear(model.classifier.in_features, num_classes)
+  model.fc = nn.Linear(model.fc.in_features, num_classes)
   model.load_state_dict(torch.load(args.save_path))
 
   # Cast the model to the correct datatype, and create a loss function for
