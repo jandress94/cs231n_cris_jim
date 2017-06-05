@@ -29,7 +29,7 @@ parser.add_argument('--save_model_path', default='../cs231n_data/saved_models/be
 parser.add_argument('--save_thresholds_path', default='../cs231n_data/saved_models/best_thresh.npy')
 parser.add_argument('--save_loss_path', default='../cs231n_data/saved_models/loss.txt')
 
-parser.add_argument('--batch_size', default=64, type=int)
+parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
 #parser.add_argument('--num_epochs', default=30, type=int)
 parser.add_argument('--num_epochs1', default=5, type=int)
@@ -136,7 +136,7 @@ def main(args):
 
   # First load the pretrained resnet-18 model; this will download the model
   # weights from the web the first time you run it.
-  model = torchvision.models.resnet18(pretrained=True)
+  model = torchvision.models.resnet152(pretrained=True)
 
   # Reinitialize the last layer of the model. Each pretrained model has a
   # slightly different structure, but from the densenet class definition

@@ -69,14 +69,14 @@ def main(args):
 
   # First load the pretrained densenet-169 model; this will download the model
   # weights from the web the first time you run it.
-  model = torchvision.models.densenet169(pretrained=True)
+  model = torchvision.models.resnet18(pretrained=True)
 
   # Reinitialize the last layer of the model. Each pretrained model has a
   # slightly different structure, but from the densenet class definition
   # we see that the final fully-connected layer is stored in model.classifier:
   # https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py#L111
   num_classes = 17
-  model.classifier = nn.Linear(model.classifier.in_features, num_classes)
+  model.fc = nn.Linear(model.fc.in_features, num_classes)
   model.load_state_dict(torch.load(args.save_path))
 
   # Cast the model to the correct datatype, and create a loss function for
