@@ -158,11 +158,11 @@ def main(args):
 
   for param in model.parameters():
     param.requires_grad = False
-  for param in model.classifier.parameters():
+  for param in model.fc.parameters():
     param.requires_grad = True
 
   # Construct an Optimizer object for updating the last layer only.
-  optimizer = torch.optim.Adam(model.classifier.parameters(), lr=args.lr1)
+  optimizer = torch.optim.Adam(model.fc.parameters(), lr=args.lr1)
 
   # set up to save the best model
   max_f2 = -np.inf
@@ -180,7 +180,7 @@ def main(args):
     if val_f2 > max_f2:
         print('found a new best!')
         max_f2 = val_f2
-        torch.save(model.state_dict(), args.save_path)
+        torch.save(model.state_dict(), args.save_model_path)
         np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
     print('Train f2: ', train_f2)
     print()
@@ -212,7 +212,7 @@ def main(args):
     if val_f2 > max_f2:
         print('found a new best!')
         max_f2 = val_f2
-        torch.save(model.state_dict(), args.save_path)
+        torch.save(model.state_dict(), args.save_model_path)
         np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
     print('Train f2: ', train_f2)
     print()
