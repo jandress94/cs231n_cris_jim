@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn import init
 import torchvision.models as models
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.autograd import Variable
@@ -7,7 +8,7 @@ import sys
 
 
 class EncoderCNN(nn.Module):
-    def __init__(self, saved_model_params, dtype, model_type = 'densenet'):
+    def __init__(self, saved_model_params, dtype, model_type = 'resnet'):
         """Load the trained model"""
         super(EncoderCNN, self).__init__()
 
@@ -18,11 +19,19 @@ class EncoderCNN(nn.Module):
             model.load_state_dict(torch.load(saved_model_params))
 
             # Cast the model to the correct datatype
-            model.type(dtype)
-            model.eval()
+            #model.type(dtype)
+            #model.eval()
+        elif model_type == 'resnet':
+            model = models.resnet18(pretrained=True)
+            model.fc = nn.Linear(model.fc.in_features, 17)
+            self.output_size = model.fc.in_features
+            model.load_state_dict(torch.load(saved_model_params))
         else:
             print('unknown model type: %s' % (model_type))
             sys.exit(1)
+
+        model.type(dtype)
+        model.eval()
 
         model_layers = list(model.children())[:-1]      # delete the last fc layer.
         self.model = nn.Sequential(*model_layers)
@@ -37,7 +46,7 @@ class DecoderRNN(nn.Module):
         """Set the hyper-parameters and build the layers."""
         super(DecoderRNN, self).__init__()
 
-        self.start_vect = nn.Parameter(torch.zeros(embed_size), requires_grad = True)
+        self.start_vect = nn.Parameter(torch.zeros(1, 1, embed_size), requires_grad = True)
         self.embed = nn.Embedding(num_labels + 1, embed_size)
         self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
         self.linear_lstm = nn.Linear(hidden_size, combined_size)
@@ -58,17 +67,23 @@ class DecoderRNN(nn.Module):
         
     def forward(self, cnn_features, labels, lengths):
         embeddings = self.embed(labels)
-        embeddings = torch.cat((self.start_vect, embeddings), 1)
+        stacked_start = torch.cat([self.start_vect for _ in range(embeddings.size(0))])
+        embeddings = torch.cat((stacked_start, embeddings), 1)
 
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True) 
         hiddens, _ = self.lstm(packed)
+        unpacked = nn.utils.rnn.pad_packed_sequence(hiddens, batch_first = True)[0]
+        unbound = torch.unbind(unpacked, 1)
+        combined = [self.linear_lstm(elem) for elem in unbound]
+        combined = torch.stack(combined, 1)
+        cnn_features = cnn_features.squeeze()
+        projected_image = self.linear_cnn(cnn_features)
+        combined += torch.stack([projected_image for _ in range(combined.size(1))], 1)
+        
+        divided = torch.unbind(nn.functional.relu(combined), 1)
+        outputs = [self.linear_final(elem) for elem in divided]
 
-        combined = self.linear_lstm(hiddens[0])
-        combined += self.linear_cnn(cnn_features)
-
-        outputs = self.linear_final(nn.functional.relu(combined))
-
-        return outputs
+        return torch.stack(outputs, 1)
     
     def sample(self, cnn_features, states=None):
         """Samples captions for given image features (Greedy search)."""

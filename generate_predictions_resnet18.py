@@ -16,6 +16,8 @@ from torchvision.datasets import ImageFolder
 
 parser = argparse.ArgumentParser()
 
+parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-all/')
+parser.add_argument('--train_labels_file', default='../cs231n_data/train_v2-all.csv')
 parser.add_argument('--test_dir', default='../cs231n_data/test-jpg/')
 parser.add_argument('--sub_file', default='../cs231n_data/submission.csv')
 parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')

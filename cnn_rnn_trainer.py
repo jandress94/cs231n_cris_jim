@@ -4,16 +4,17 @@ import torch.nn as nn
 import numpy as np
 import os
 import pickle
-from data_loader import get_loader 
-from build_vocab import Vocabulary
-from model import EncoderCNN, DecoderRNN 
+from cnn_rnn_model import EncoderCNN, DecoderRNN 
 from torch.autograd import Variable 
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
+import torchvision.transforms as T
+from MultiLabelImageFolder import *
+from torch.utils.data import DataLoader
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cnn_load_path', type=str, default='../cs231n_data/saved_models/best_model.cris')
-parser.add_argument('--load_thresholds_path', default='../cs231n_data/saved_models/best_thresh.npy')
+parser.add_argument('--cnn_load_path', type=str, default='../cs231n_data/saved_models_resnet18_06-04/best_model.cris')
+parser.add_argument('--load_thresholds_path', default='../cs231n_data/saved_models_resnet18_06-04/best_thresh.npy')
 parser.add_argument('--rnn_save_path', type=str, default='../cs231n_data/saved_rnn_models/best_rnn_model.cris')
 
 parser.add_argument('--train_dir', default='../cs231n_data/train-jpg/')
@@ -29,6 +30,8 @@ parser.add_argument('--num_epochs', type=int, default=10)
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--use_gpu', action='store_true')
 
+parser.add_argument('--batch_size', type=int, default=49)
+parser.add_argument('--num_workers', type=int, default=4)
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
@@ -60,16 +63,27 @@ def main(args):
     ])
 
     def transform_target_to_1_0_vect(target):
-        return sorted(target), len(target)
+        return torch.Tensor(sorted(target))
     
     # Build data loader
     train_dset = MultiLabelImageFolder(args.train_dir, args.train_labels_file, args.label_list_file, \
         transform=train_transform, target_transform = transform_target_to_1_0_vect)
 
+    def collate_fn(data):
+        data.sort(key=lambda x: len(x[1]), reverse=True)
+        images, labels = zip(*data)
+        images = torch.stack(images, 0)
+        lengths = [len(label) for label in labels]
+        targets = torch.zeros(len(labels), max(lengths)).long()
+        for i, label in enumerate(labels):
+            end = lengths[i]
+            targets[i, :end] = label[:end]
+        return images, targets, lengths
 
     train_loader = DataLoader(train_dset,
                             batch_size=args.batch_size,
                             num_workers=args.num_workers,
+                            collate_fn = collate_fn,
                             shuffle=True)
 
     # Build the models
@@ -86,12 +100,18 @@ def main(args):
     optimizer = torch.optim.Adam(decoder.parameters(), lr=args.lr)
     
     # Train the Models
-    total_step = len(data_loader)
+    total_step = len(train_loader)
     for epoch in range(args.num_epochs):
-        for i, (images, (labels, lengths)) in enumerate(data_loader):
+        for i, (images, labels, lengths) in enumerate(train_loader):
+
+            #images = Variable(images.type(dtype))
+            #print(labels)
+            #labels = Variable(torch.Tensor(np.array(labels))).type(dtype)
+            #y_var = Variable(y.type(dtype).float())
+
             
             # Set mini-batch dataset
-            images = to_var(images, volatile=True)
+            images = to_var(images)
             labels = to_var(labels)
             targets = pack_padded_sequence(labels, lengths, batch_first=True)[0]
             
@@ -100,7 +120,10 @@ def main(args):
             encoder.zero_grad()
             features = encoder(images)
             outputs = decoder(features, labels, lengths)
-            loss = loss_fn(outputs, targets)
+            unbound_labels = torch.unbind(labels, 1)
+            unbound_outputs = torch.unbind(outputs, 1)
+            losses = [loss_fn(unbound_outputs[i], unbound_labels[i]) for i in range(len(unbound_labels))]
+            loss = torch.sum(torch.stack(losses, 0))
             loss.backward()
             optimizer.step()
 
