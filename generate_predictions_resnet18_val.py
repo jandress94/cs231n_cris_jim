@@ -94,6 +94,11 @@ def main(args):
   if args.use_gpu:
     dtype = torch.cuda.FloatTensor
 
+  def transform_target_to_1_0_vect(target):
+    vect = np.zeros((17,))
+    vect[target] = 1
+    return vect
+
   # Set up a transform to use for validation data at test-time. For validation
   # images we will simply resize so the smaller edge has 224 pixels, then take
   # a 224 x 224 center crop. We will then construct an ImageFolder Dataset object
@@ -129,10 +134,7 @@ def main(args):
     T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
   ])
 
-  def transform_target_to_1_0_vect(target):
-    vect = np.zeros((17,))
-    vect[target] = 1
-    return vect
+  
   
   # You load data in PyTorch by first constructing a Dataset object which
   # knows how to load individual data points (images and labels) and apply a
