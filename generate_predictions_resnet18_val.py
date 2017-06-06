@@ -104,7 +104,8 @@ def main(args):
     T.ToTensor(),
     T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
   ])
-  val_dset = MultiLabelImageFolder(args.val_dir, transform=val_transform)
+  val_dset = MultiLabelImageFolder(args.val_dir, args.val_labels_file, args.label_list_file, \
+  transform=val_transform, target_transform = transform_target_to_1_0_vect)
   val_loader = DataLoader(val_dset,
                   batch_size=args.batch_size,
                   num_workers=args.num_workers)
