@@ -6,6 +6,9 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torch.autograd import Variable
 import sys
 
+class Identity(nn.Module):
+    def forward(self, x):
+        return x
 
 class EncoderCNN(nn.Module):
     def __init__(self, saved_model_params, dtype, model_type = 'resnet'):
@@ -18,23 +21,21 @@ class EncoderCNN(nn.Module):
             self.output_size = model.classifier.in_features
             model.load_state_dict(torch.load(saved_model_params))
 
-            # Cast the model to the correct datatype
-            #model.type(dtype)
-            #model.eval()
+            model.classifier = Identity()
         elif model_type == 'resnet':
             model = models.resnet18(pretrained=True)
             model.fc = nn.Linear(model.fc.in_features, 17)
             self.output_size = model.fc.in_features
             model.load_state_dict(torch.load(saved_model_params))
+
+            model.fc = Identity()
         else:
             print('unknown model type: %s' % (model_type))
             sys.exit(1)
 
         model.type(dtype)
         model.eval()
-
-        model_layers = list(model.children())[:-1]      # delete the last fc layer.
-        self.model = nn.Sequential(*model_layers)
+        self.model = model
         
     def forward(self, images):
         """Extract the image feature vectors."""
@@ -76,7 +77,7 @@ class DecoderRNN(nn.Module):
         unbound = torch.unbind(unpacked, 1)
         combined = [self.linear_lstm(elem) for elem in unbound]
         combined = torch.stack(combined, 1)
-        cnn_features = cnn_features.squeeze()
+        #cnn_features = cnn_features.squeeze()
         projected_image = self.linear_cnn(cnn_features)
         combined += torch.stack([projected_image for _ in range(combined.size(1))], 1)
         
@@ -88,18 +89,20 @@ class DecoderRNN(nn.Module):
     def sample(self, cnn_features, states=None):
         """Samples captions for given image features (Greedy search)."""
         sampled_labels = []
-        inputs = self.start_vect
+        inputs = torch.cat([self.start_vect for _ in range(cnn_features.size(0))])
         for i in range(18):                                      # maximum sampling length
-            hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
-
+            #print('running lstm')
+            #print(inputs.size())
+            #if states is not None:  print(states)
+            hiddens, states = self.lstm(inputs, states)
+            #print('done running lstm')
             combined = self.linear_lstm(hiddens.squeeze(1))
             combined += self.linear_cnn(cnn_features)
-
             outputs = self.linear_final(nn.functional.relu(combined))
-            predicted = output.max(1)[1]
+            predicted = outputs.max(1)[1]
             sampled_labels.append(predicted)
-
             inputs = self.embed(predicted)
 
-        sampled_labels = torch.cat(sampled_labels, 1)                  # (batch_size, 20)
+        sampled_labels = torch.cat(sampled_labels, 1)
+        #print('done sampling')
         return sampled_labels.squeeze()
