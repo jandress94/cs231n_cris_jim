@@ -10,7 +10,6 @@ import pandas as pd
 
 import torchvision
 import torchvision.transforms as T
-from MultiLabelImageFolderTest import *
 from MultiLabelImageFolder import *
 from torchvision.datasets import ImageFolder
 
@@ -18,7 +17,8 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-all/')
 parser.add_argument('--train_labels_file', default='../cs231n_data/train_v2-all.csv')
-parser.add_argument('--test_dir', default='../cs231n_data/test-jpg/')
+parser.add_argument('--val_dir', default='../cs231n_data/val-jpg/')
+parser.add_argument('--val_labels_file', default='../cs231n_data/val_v2.csv')
 parser.add_argument('--sub_file', default='../cs231n_data/submission.csv')
 parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
 
@@ -98,14 +98,14 @@ def main(args):
   # images we will simply resize so the smaller edge has 224 pixels, then take
   # a 224 x 224 center crop. We will then construct an ImageFolder Dataset object
   # for the validation data, and a DataLoader for the validation set.
-  test_transform = T.Compose([
+  val_transform = T.Compose([
     T.Scale(224),
     T.CenterCrop(224),
     T.ToTensor(),
     T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
   ])
-  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  test_loader = DataLoader(test_dset,
+  val_dset = MultiLabelImageFolder(args.val_dir, transform=val_transform)
+  val_loader = DataLoader(val_dset,
                   batch_size=args.batch_size,
                   num_workers=args.num_workers)
 
@@ -190,12 +190,12 @@ def main(args):
   thresholds = torch.Tensor(label_thresholds).type(dtype)
   classes = find_classes(args.label_list_file)
 
-  y_pred = np.zeros((len(test_dset), 17))
+  y_pred = np.zeros((len(val_dset), 17))
   filenames_list = []
 
   count = 0
-  for x, filenames in test_loader:
-    print_progress(count, len(test_dset), 'Running example')
+  for x, filenames in val_loader:
+    print_progress(count, len(val_dset), 'Running example')
 
     x_var = Variable(x.type(dtype), volatile = True)
     scores = model(x_var)
