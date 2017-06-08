@@ -43,13 +43,13 @@ class EncoderCNN(nn.Module):
     
     
 class DecoderRNN(nn.Module):
-    def __init__(self, embed_size, hidden_size, cnn_output_size, num_labels, combined_size, num_layers):
+    def __init__(self, embed_size, hidden_size, cnn_output_size, num_labels, combined_size):
         """Set the hyper-parameters and build the layers."""
         super(DecoderRNN, self).__init__()
 
         self.start_vect = nn.Parameter(torch.zeros(1, 1, embed_size), requires_grad = True)
         self.embed = nn.Embedding(num_labels + 1, embed_size)
-        self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(embed_size, hidden_size, 1, batch_first=True)
         self.linear_lstm = nn.Linear(hidden_size, combined_size)
         self.linear_cnn = nn.Linear(cnn_output_size, combined_size)
         self.linear_final = nn.Linear(combined_size, num_labels + 1)

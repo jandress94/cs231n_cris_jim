@@ -2,7 +2,7 @@ import argparse
 import torch
 import torch.nn as nn
 import numpy as np
-import os
+import os, sys
 import pickle
 from cnn_rnn_model import EncoderCNN, DecoderRNN 
 from torch.autograd import Variable 
@@ -67,12 +67,15 @@ def main(args):
         T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
     ])
 
+    def transform_target_add_end(target):
+        return torch.Tensor(sorted(target) + [17])
+
     def transform_target_to_padded(target):
         return torch.Tensor(sorted(target) + [17] * (18 - len(target)))
     
     # Build data loader
     train_dset = MultiLabelImageFolder(args.train_dir, args.train_labels_file, args.label_list_file, \
-        transform=train_transform, target_transform = transform_target_to_padded)
+        transform=train_transform, target_transform = transform_target_add_end)
 
     def collate_fn(data):
         data.sort(key=lambda x: len(x[1]), reverse=True)
@@ -109,7 +112,7 @@ def main(args):
     # Build the models
     encoder = EncoderCNN(args.cnn_load_path, dtype, model_type = 'densenet')
     decoder = DecoderRNN(args.label_embed_size, args.lstm_hidden_size, 
-                    encoder.output_size, 17, args.combined_hidden_size, 18)
+                    encoder.output_size, 17, args.combined_hidden_size)
     
     if torch.cuda.is_available():
         encoder.cuda()
@@ -144,17 +147,14 @@ def main(args):
 
             T_max = len(unbound_labels)
 
-            '''
             log_soft_scores = [-nn.LogSoftmax()(time_step) for time_step in unbound_outputs]
             loss_terms = [torch.gather(log_soft_scores[t], 1, torch.unsqueeze(unbound_labels[t], 1)) for t in range(T_max)]
-            masks = [(torch.Tensor(lengths) > t).float() for t in range(T_max)]
-            masked_loss_terms = sum([loss_terms[t].data.cpu() * masks[t] for t in range(T_max)])
-            masked_loss_terms = torch.autograd.Variable(masked_loss_terms, requires_grad = True)
+            masks = [torch.autograd.Variable((torch.Tensor(lengths) > t).float().cuda(), requires_grad = True) for t in range(T_max)]
+            masked_loss_terms = sum([loss_terms[t] * masks[t] for t in range(T_max)])
             loss = torch.sum(masked_loss_terms) / torch.sum(sum(masks))
-            '''
-
-            losses = [loss_fn(unbound_outputs[i], unbound_labels[i]) for i in range(T_max)]
-            loss = torch.sum(sum(losses))
+            
+            #losses = [loss_fn(unbound_outputs[i], unbound_labels[i]) for i in range(T_max)]
+            #loss = torch.sum(sum(losses))
 
             loss.backward()
             optimizer.step()
