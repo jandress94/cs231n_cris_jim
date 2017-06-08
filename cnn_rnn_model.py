@@ -16,17 +16,17 @@ class EncoderCNN(nn.Module):
         super(EncoderCNN, self).__init__()
 
         if model_type == 'densenet':
-            model = models.densenet169(pretrained=False)
-            model.classifier = nn.Linear(model.classifier.in_features, 17)
+            model = models.densenet169(pretrained=True)
+            #model.classifier = nn.Linear(model.classifier.in_features, 17)
             self.output_size = model.classifier.in_features
-            model.load_state_dict(torch.load(saved_model_params))
+            #model.load_state_dict(torch.load(saved_model_params))
 
             model.classifier = Identity()
         elif model_type == 'resnet':
             model = models.resnet18(pretrained=True)
-            model.fc = nn.Linear(model.fc.in_features, 17)
+            #model.fc = nn.Linear(model.fc.in_features, 17)
             self.output_size = model.fc.in_features
-            model.load_state_dict(torch.load(saved_model_params))
+            #model.load_state_dict(torch.load(saved_model_params))
 
             model.fc = Identity()
         else:
@@ -35,6 +35,8 @@ class EncoderCNN(nn.Module):
 
         model.type(dtype)
         model.eval()
+        for param in model.parameters():
+            param.requires_grad = False
         self.model = model
         
     def forward(self, images):

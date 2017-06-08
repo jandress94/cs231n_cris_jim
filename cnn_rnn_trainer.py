@@ -165,14 +165,13 @@ def main(args):
                       %(epoch, args.num_epochs, i, total_step, 
                         loss.data[0], np.exp(loss.data[0]))) 
 
-            # Save the models
-            if (i+1) % args.save_step == 0:
-                f2 = check_f2(encoder, decoder, val_loader, dtype)
-                print('Val f2: %f' % (f2))
-                if f2 > best_f2:
-                    best_f2 = f2
-                    print('found a new best!')
-                    torch.save(decoder.state_dict(), args.rnn_save_path)
+        # Save the models
+        f2 = check_f2(encoder, decoder, val_loader, dtype)
+        print('Val f2: %f' % (f2))
+        if f2 > best_f2:
+            best_f2 = f2
+            print('found a new best!')
+            torch.save(decoder.state_dict(), args.rnn_save_path)
 
 def check_f2(encoder, decoder, loader, dtype, eps = 1e-8):
     decoder.eval()

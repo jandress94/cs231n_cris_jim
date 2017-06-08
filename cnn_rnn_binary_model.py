@@ -34,6 +34,8 @@ class EncoderCNN(nn.Module):
             sys.exit(1)
 
         model.type(dtype)
+        for param in model.parameters():
+            param.requires_grad = False
         model.eval()
         self.model = model
         
@@ -42,10 +44,10 @@ class EncoderCNN(nn.Module):
         return self.model(images)
     
     
-class DecoderRNN(nn.Module):
+class DecoderBinaryRNN(nn.Module):
     def __init__(self, hidden_size, cnn_output_size, num_labels):
         """Set the hyper-parameters and build the layers."""
-        super(DecoderRNN, self).__init__()
+        super(DecoderBinaryRNN, self).__init__()
 
         self.num_labels = num_labels
         self.lstm = nn.LSTM(1, hidden_size, 1, batch_first=True)
@@ -61,13 +63,13 @@ class DecoderRNN(nn.Module):
         self.linear_final.bias.data.fill_(0)
         
     def forward(self, cnn_features):
+        #h0 = torch.unsqueeze(self.linear_img_to_lstm(cnn_features), 0)
         h0 = torch.unsqueeze(self.linear_img_to_lstm(cnn_features), 0)
-        c0 = torch.zeros(1, h0.size(1), h0.size(2))
+        c0 = torch.autograd.Variable(torch.zeros(h0.size(0), h0.size(1), h0.size(2)).cuda(), requires_grad = False)
 
-        zero_input = torch.zeros(h0.size(1), self.num_labels, 1)
-
+        zero_input = torch.autograd.Variable(torch.zeros(cnn_features.size(0), self.num_labels, 1).cuda(), requires_grad = False)
+        
         hiddens, _ = self.lstm(zero_input, (h0, c0))
-        print(hiddens.size())
         unbound = torch.unbind(hiddens, 1)
         combined = [self.linear_final(elem) for elem in unbound]
         combined = torch.stack(combined, 1)

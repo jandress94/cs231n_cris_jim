@@ -4,13 +4,14 @@ import torch.nn as nn
 import numpy as np
 import os
 import pickle
-from cnn_rnn_model import EncoderCNN, DecoderRNN 
+from cnn_rnn_binary_model import EncoderCNN, DecoderBinaryRNN 
 from torch.autograd import Variable 
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 import torchvision.transforms as T
 from MultiLabelImageFolder import *
 from torch.utils.data import DataLoader
+from per_class_utils import *
 
 import pdb
 
@@ -93,9 +94,10 @@ def main(args):
 
     # Build the models
     encoder = EncoderCNN(args.cnn_load_path, dtype, model_type = 'densenet')
-    decoder = DecoderRNN(args.label_embed_size, args.lstm_hidden_size, 
-                    encoder.output_size, 17, args.combined_hidden_size, 18)
-    
+    decoder = DecoderBinaryRNN(args.lstm_hidden_size, encoder.output_size, 17)
+    for param in decoder.parameters():
+        param.requires_grad = True
+ 
     if torch.cuda.is_available():
         encoder.cuda()
         decoder.cuda()
@@ -117,7 +119,7 @@ def main(args):
         for i, (images, labels) in enumerate(train_loader):
             # Set mini-batch dataset
             images = to_var(images)
-            labels = to_var(labels)
+            labels = to_var(labels).float()
             # Forward, Backward and Optimize
             decoder.zero_grad()
             encoder.zero_grad()
@@ -133,15 +135,14 @@ def main(args):
                       %(epoch, args.num_epochs, i, total_step, 
                         loss.data[0], np.exp(loss.data[0]))) 
 
-            # Save the models
-            if (i+1) % args.save_step == 0:
-                f2 = check_f2(nn.Sequential(encoder, decoder), val_loader, dtype, recomp_thresh = True)
-                print('Val f2: %f' % (f2))
-                if f2 > best_f2:
-                    best_f2 = f2
-                    print('found a new best!')
-                    torch.save(decoder.state_dict(), args.rnn_save_path)
-                    np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
+        # Save the models
+        f2 = check_f2(nn.Sequential(encoder, decoder), val_loader, dtype, recomp_thresh = True)
+        print('Val f2: %f' % (f2))
+        if f2 > best_f2:
+            best_f2 = f2
+            print('found a new best!')
+            torch.save(decoder.state_dict(), args.rnn_save_path)
+            np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
 
 
 if __name__ == '__main__':

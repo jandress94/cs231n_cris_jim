@@ -1,4 +1,7 @@
 import numpy as np
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
 
 label_thresholds = np.zeros((17,))
 
