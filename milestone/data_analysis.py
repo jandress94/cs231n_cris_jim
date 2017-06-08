@@ -16,7 +16,9 @@ print train_label_counter
 sorted_labels = sorted(train_label_counter.items(), key=operator.itemgetter(1))
 
 plt.bar(range(len(sorted_labels)), [x[1] for x in sorted_labels], align='center')
-plt.xticks(range(len(sorted_labels)), [x[0] for x in sorted_labels], rotation=-90)
+plt.yscale('log')
+plt.axis([-5, 20, 10, 100000])
+plt.xticks(range(len(sorted_labels)), [x[0] for x in sorted_labels], rotation=-60)
 plt.ylabel('Number of Images')
 plt.xlabel('Label')
 plt.show()
