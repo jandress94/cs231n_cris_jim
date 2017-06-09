@@ -13,6 +13,7 @@ import torchvision.transforms as T
 from MultiLabelImageFolderTest import *
 from MultiLabelImageFolder import *
 from torchvision.datasets import ImageFolder
+from cnn_rnn_binary_model import *
 
 parser = argparse.ArgumentParser()
 
@@ -22,8 +23,8 @@ parser.add_argument('--test_dir', default='../cs231n_data/test-jpg/')
 parser.add_argument('--sub_file', default='../cs231n_data/submission.csv')
 parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
 
-parser.add_argument('--save_path', default='../cs231n_data/saved_models/best_model.cris')
-parser.add_argument('--save_thresholds_path', default='../cs231n_data/saved_models/best_thresh.npy')
+parser.add_argument('--cnn_load_path', type=str, default='../cs231n_data/saved_rnn_binary_models/best_cnn_binary_model.cris')
+parser.add_argument('--rnn_load_path', type=str, default='../cs231n_data/saved_rnn_binary_models/best_rnn_binary_model.cris')
 
 parser.add_argument('--batch_size', default=64, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
@@ -59,7 +60,8 @@ def recompute_thresholds(model, loader, dtype, eps = 1e-8):
   scores_list = []
   ys = []
 
-  for x, y in loader:
+  for i, (x, y) in enumerate(loader):
+    print_progress(i, len(loader), 'getting scores for thresholds')
     x_var = Variable(x.type(dtype), volatile = True)
     scores = model(x_var)
     normalized_scores = torch.sigmoid(scores)
@@ -168,15 +170,20 @@ def main(args):
 
   # First load the pretrained densenet-169 model; this will download the model
   # weights from the web the first time you run it.
-  model = torchvision.models.densenet169(pretrained=True)
+  #model = torchvision.models.densenet169(pretrained=True)
+  encoder = EncoderCNN(dtype, model_type = 'densenet')
+  encoder.load_state_dict(torch.load(args.cnn_load_path))
+  decoder = DecoderBinaryRNN(128, encoder.output_size, 17)
+  decoder.load_state_dict(torch.load(args.rnn_load_path))
+  model = nn.Sequential(encoder, decoder)
 
   # Reinitialize the last layer of the model. Each pretrained model has a
   # slightly different structure, but from the densenet class definition
   # we see that the final fully-connected layer is stored in model.classifier:
   # https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py#L111
   num_classes = 17
-  model.classifier = nn.Linear(model.classifier.in_features, num_classes)
-  model.load_state_dict(torch.load(args.save_path))
+  #model.classifier = nn.Linear(model.classifier.in_features, num_classes)
+  #model.load_state_dict(torch.load(args.save_path))
 
   # Cast the model to the correct datatype, and create a loss function for
   # training the model.
@@ -198,7 +205,7 @@ def main(args):
     print_progress(count, len(test_dset), 'Running example')
 
     x_var = Variable(x.type(dtype), volatile = True)
-    scores = model(x_var)
+    scores = torch.squeeze(model(x_var))
     normalized_scores = torch.sigmoid(scores)
 
     if thresholds.size(0) != x.size(0):

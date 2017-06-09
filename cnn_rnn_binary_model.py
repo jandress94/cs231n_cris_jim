@@ -11,32 +11,23 @@ class Identity(nn.Module):
         return x
 
 class EncoderCNN(nn.Module):
-    def __init__(self, saved_model_params, dtype, model_type = 'resnet'):
+    def __init__(self, dtype, model_type = 'resnet'):
         """Load the trained model"""
         super(EncoderCNN, self).__init__()
 
         if model_type == 'densenet':
-            model = models.densenet169(pretrained=False)
-            model.classifier = nn.Linear(model.classifier.in_features, 17)
+            model = models.densenet169(pretrained=True)
             self.output_size = model.classifier.in_features
-            model.load_state_dict(torch.load(saved_model_params))
-
             model.classifier = Identity()
         elif model_type == 'resnet':
             model = models.resnet18(pretrained=True)
-            model.fc = nn.Linear(model.fc.in_features, 17)
             self.output_size = model.fc.in_features
-            model.load_state_dict(torch.load(saved_model_params))
-
             model.fc = Identity()
         else:
             print('unknown model type: %s' % (model_type))
             sys.exit(1)
 
         model.type(dtype)
-        for param in model.parameters():
-            param.requires_grad = False
-        model.eval()
         self.model = model
         
     def forward(self, images):
@@ -63,7 +54,6 @@ class DecoderBinaryRNN(nn.Module):
         self.linear_final.bias.data.fill_(0)
         
     def forward(self, cnn_features):
-        #h0 = torch.unsqueeze(self.linear_img_to_lstm(cnn_features), 0)
         h0 = torch.unsqueeze(self.linear_img_to_lstm(cnn_features), 0)
         c0 = torch.autograd.Variable(torch.zeros(h0.size(0), h0.size(1), h0.size(2)).cuda(), requires_grad = False)
 
