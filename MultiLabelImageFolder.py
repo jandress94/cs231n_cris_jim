@@ -35,7 +35,7 @@ def get_img_to_labels(labels_file, class_to_idx):
     return img_label_dict
 
 
-def make_dataset(dir, labels_file, class_to_idx):
+def make_dataset(dir, labels_file, class_to_idx, augment=False):
     img_label_dict = get_img_to_labels(labels_file, class_to_idx)
     images = []
 
@@ -43,8 +43,17 @@ def make_dataset(dir, labels_file, class_to_idx):
         d = os.path.join(dir, target)
 
         if is_image_file(d):
-            item = (d, img_label_dict[target.split('.')[0]])
-            images.append(item)
+            labels = img_label_dict[target.split('.')[0]]
+            item = (d, labels)
+            if augment:
+                if not set([11, 12, 13, 14, 15, 16]).isdisjoint(labels):
+                    images += 6 * [item]
+                elif not set([10]).isdisjoint(labels):
+                    images += 4 * [item]
+                elif not set([7, 8, 9]).isdisjoint(labels):
+                    images += 2 * [item]
+            else:
+                images.append(item)
 
     return images
 
@@ -81,9 +90,9 @@ The list of all labels should be in the text file given by label_list_file
 class MultiLabelImageFolder(data.Dataset):
 
     def __init__(self, data_dir, labels_file, label_list_file, transform=None, target_transform=None,
-                 loader=default_loader):
+                 loader=default_loader, augment=False):
         classes, class_to_idx = find_classes(label_list_file)
-        imgs = make_dataset(data_dir, labels_file, class_to_idx)
+        imgs = make_dataset(data_dir, labels_file, class_to_idx, augment)
 
         if len(imgs) == 0:
             raise(RuntimeError("Found 0 images in subfolders of: " + data_dir + "\n"
