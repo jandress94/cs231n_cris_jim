@@ -14,6 +14,7 @@ import torchvision.transforms as T
 from MultiLabelImageFolder import *
 from torchvision.datasets import ImageFolder
 from per_class_utils import *
+from affine_transform import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_dir', default='../cs231n_data/train-jpg/')
@@ -73,9 +74,13 @@ def main(args):
   train_transform = T.Compose([
     T.Scale(256),
     T.RandomSizedCrop(224),
-    T.RandomHorizontalFlip(),
-    T.ToTensor(),            
-    T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+    #T.RandomHorizontalFlip(),
+    T.ToTensor(),
+    Transpose(0, 1),
+    RandomFlip(h = True, v = False),
+    RandomFlip(h = False, v = True),
+    RandomAffine(rotation_range=30, translation_range=0.045, shear_range=None, zoom_range=None),
+    T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
   ])
   
   # You load data in PyTorch by first constructing a Dataset object which
@@ -97,7 +102,7 @@ def main(args):
   # You can read more about the ImageFolder class here:
   # https://github.com/pytorch/vision/blob/master/torchvision/datasets/folder.py
   train_dset = MultiLabelImageFolder(args.train_dir, args.train_labels_file, args.label_list_file, \
-    transform=train_transform, target_transform = transform_target_to_1_0_vect)
+    transform=train_transform, target_transform = transform_target_to_1_0_vect, augment = True)
 
   
   train_loader = DataLoader(train_dset,
@@ -129,7 +134,7 @@ def main(args):
 
   # First load the pretrained resnet-18 model; this will download the model
   # weights from the web the first time you run it.
-  model = torchvision.models.resnet152(pretrained=True)
+  model = torchvision.models.resnet18(pretrained=True)
 
   # Reinitialize the last layer of the model. Each pretrained model has a
   # slightly different structure, but from the densenet class definition
