@@ -54,7 +54,7 @@ def main(args):
         predictions = predictions + table
 
     predictions = predictions / num_models
-    predictions = predictions > args.threshold
+    predictions = predictions >= args.threshold
     predictions = predictions.astype(np.int)
     predictions = [' '.join(classes[y_pred_row == 1]) for y_pred_row in predictions]
 

@@ -14,6 +14,7 @@ from MultiLabelImageFolderTest import *
 from MultiLabelImageFolder import *
 from torchvision.datasets import ImageFolder
 from cnn_rnn_binary_model import *
+from per_class_utils import *
 
 parser = argparse.ArgumentParser()
 
@@ -40,52 +41,6 @@ def find_classes(label_list_file):
     classes = np.array([line.strip() for line in f])
     f.close()
     return classes
-
-def compute_f2(scores, y, threshold, axis, eps = 1e-8):
-  preds = scores >= threshold
-  preds = preds.cpu().int()
-  y = y.int()
-    
-  pred_pos = torch.sum(preds, axis).float()
-  real_pos = torch.sum(y, axis).float()
-  true_pos = torch.sum(y * preds, axis).float()
-  
-  p = 1.0 * true_pos / (pred_pos + eps)
-  r = 1.0 * true_pos / (real_pos + eps)
-
-  beta = 2
-  return (1.0 + beta**2)*p*r / (beta**2 * p + r + eps)
-
-def recompute_thresholds(model, loader, dtype, eps = 1e-8):
-  scores_list = []
-  ys = []
-
-  for i, (x, y) in enumerate(loader):
-    print_progress(i, len(loader), 'getting scores for thresholds')
-    x_var = Variable(x.type(dtype), volatile = True)
-    scores = model(x_var)
-    normalized_scores = torch.sigmoid(scores)
-    scores_list.append(normalized_scores)
-    ys.append(y)
-
-  scores = torch.cat(scores_list, 0).data
-  ys = torch.cat(ys, 0)
-
-  best_thresh = np.zeros((17,))
-  best_f2 = -np.ones((17,))
-
-  for t in range(1000):
-    print_progress(t, 1000, 'Recomputing thresholds')
-    thresh = (1 + t) * 0.001
-
-    f2 = compute_f2(scores, ys, thresh, 0).numpy()
-
-    better_mask = f2 > best_f2
-    better_mask = better_mask.astype(np.int)
-    best_thresh = (1 - better_mask) * best_thresh + better_mask * thresh
-    best_f2 = (1 - better_mask) * best_f2 + better_mask * f2
-
-  return best_thresh
 
 def main(args):
   global label_thresholds
