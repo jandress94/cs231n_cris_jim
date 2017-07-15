@@ -15,9 +15,9 @@ from torch.utils.data import DataLoader
 import pdb
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cnn_save_path', type=str, default='../cs231n_data/saved_rnn_binary_models/best_cnn_binary_model.cris')
-parser.add_argument('--rnn_save_path', type=str, default='../cs231n_data/saved_rnn_binary_models/best_rnn_binary_model.cris')
-parser.add_argument('--save_loss_path', default='../cs231n_data/saved_rnn_binary_models/loss.txt')
+parser.add_argument('--cnn_save_path', type=str, default='../cs231n_data/saved_rnn_caption_models/best_cnn_caption_model.cris')
+parser.add_argument('--rnn_save_path', type=str, default='../cs231n_data/saved_rnn_caption_models/best_rnn_caption_model.cris')
+parser.add_argument('--save_loss_path', default='../cs231n_data/saved_rnn_caption_models/loss.txt')
 
 parser.add_argument('--train_dir', default='../cs231n_data/train-jpg/')
 #parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-small/')
@@ -27,7 +27,7 @@ parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
 parser.add_argument('--val_dir', default='../cs231n_data/val-jpg/')
 parser.add_argument('--val_labels_file', default = '../cs231n_data/val_v2.csv')
 
-parser.add_argument('--label_embed_size', type=int, defauly=32)
+parser.add_argument('--label_embed_size', type=int, default=32)
 parser.add_argument('--lstm_hidden_size', type=int, default=128)
 parser.add_argument('--num_epochs1', type=int, default=15)
 parser.add_argument('--num_epochs2', type=int, default=20)
@@ -104,7 +104,7 @@ def main(args):
     ])
 
     val_dset = MultiLabelImageFolder(args.val_dir, args.val_labels_file, args.label_list_file, \
-        transform=val_transform, target_transform = transform_target_add_end)
+        transform=val_transform, target_transform = transform_target_to_padded)
 
     val_loader = DataLoader(val_dset, 
                     batch_size = args.batch_size,
