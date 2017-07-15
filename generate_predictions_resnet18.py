@@ -168,7 +168,7 @@ def main(args):
 
   # First load the pretrained densenet-169 model; this will download the model
   # weights from the web the first time you run it.
-  model = torchvision.models.resnet18(pretrained=True)
+  model = torchvision.models.resnet152(pretrained=True)
 
   # Reinitialize the last layer of the model. Each pretrained model has a
   # slightly different structure, but from the densenet class definition
@@ -198,7 +198,7 @@ def main(args):
     print_progress(count, len(test_dset), 'Running example')
 
     x_var = Variable(x.type(dtype), volatile = True)
-    scores = model(x_var)
+    scores = torch.squeeze(model(x_var))
     normalized_scores = torch.sigmoid(scores)
 
     if thresholds.size(0) != x.size(0):
@@ -211,11 +211,11 @@ def main(args):
     # make sure that at least one class is predicted for each
     num_predicted = np.sum(preds, 1, keepdims=True)
     no_preds = num_predicted == 0
-    no_preds = no_preds.astype(np.int)
+    no_preds = np.squeeze(no_preds.astype(np.int))
 
     indices = np.argmax(normalized_scores.cpu().numpy(), 1)
     backup_preds = np.zeros_like(preds)
-    backup_preds[indices] = no_preds
+    backup_preds[np.arange(len(backup_preds)), indices] = no_preds
     preds += backup_preds
 
     #preds = preds.numpy()

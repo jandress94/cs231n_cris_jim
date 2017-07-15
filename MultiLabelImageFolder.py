@@ -47,11 +47,11 @@ def make_dataset(dir, labels_file, class_to_idx, augment=False):
             item = (d, labels)
             if augment:
                 if not set([11, 12, 13, 14, 15, 16]).isdisjoint(labels):
-                    images += 6 * [item]
+                    images += 10 * [item]
                 elif not set([10]).isdisjoint(labels):
-                    images += 4 * [item]
-                elif not set([7, 8, 9]).isdisjoint(labels):
                     images += 2 * [item]
+                else:
+                    images.append(item)
             else:
                 images.append(item)
 
