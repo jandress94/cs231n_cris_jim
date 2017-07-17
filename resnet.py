@@ -30,11 +30,11 @@ parser.add_argument('--save_model_path', default='../cs231n_data/saved_models/be
 parser.add_argument('--save_thresholds_path', default='../cs231n_data/saved_models/best_thresh.npy')
 parser.add_argument('--save_loss_path', default='../cs231n_data/saved_models/loss.txt')
 
-parser.add_argument('--batch_size', default=32, type=int)
+parser.add_argument('--batch_size', default=64, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
-#parser.add_argument('--num_epochs', default=30, type=int)
+
 parser.add_argument('--num_epochs1', default=5, type=int)
-parser.add_argument('--num_epochs2', default=22, type=int)
+parser.add_argument('--num_epochs2', default=25, type=int)
 parser.add_argument('--lr1', default=1e-3, type=float)
 parser.add_argument('--lr2', default=1e-4, type=float)
 parser.add_argument('--use_gpu', action='store_true')
@@ -72,14 +72,13 @@ def main(args):
   # (5) Normalize the image using the mean and variance of each color channel
   #     computed on the ImageNet dataset.
   train_transform = T.Compose([
-    T.Scale(256),
+    T.Scale(int(256*(0.2*np.random.rand() + 0.9))),
     T.RandomSizedCrop(224),
-    #T.RandomHorizontalFlip(),
     T.ToTensor(),
     Transpose(1, 2),
     RandomFlip(h = True, v = False),
     RandomFlip(h = False, v = True),
-    #RandomAffine(rotation_range=30, translation_range=0.02, shear_range=None, zoom_range=None),
+    RandomChoiceRotate(values = [0, 90, 180, 270], p = [0.25, 0.25, 0.25, 0.25])
     T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
   ])
   
@@ -102,7 +101,7 @@ def main(args):
   # You can read more about the ImageFolder class here:
   # https://github.com/pytorch/vision/blob/master/torchvision/datasets/folder.py
   train_dset = MultiLabelImageFolder(args.train_dir, args.train_labels_file, args.label_list_file, \
-    transform=train_transform, target_transform = transform_target_to_1_0_vect, augment = False)
+    transform=train_transform, target_transform = transform_target_to_1_0_vect)
 
   
   train_loader = DataLoader(train_dset,
@@ -134,7 +133,7 @@ def main(args):
 
   # First load the pretrained resnet-18 model; this will download the model
   # weights from the web the first time you run it.
-  model = torchvision.models.resnet152(pretrained=True)
+  model = torchvision.models.resnet34(pretrained=True)
 
   # Reinitialize the last layer of the model. Each pretrained model has a
   # slightly different structure, but from the densenet class definition
@@ -155,7 +154,7 @@ def main(args):
   # last layer only.
 
   for param in model.parameters():
-    param.requires_grad = True
+    param.requires_grad = False
   for param in model.fc.parameters():
     param.requires_grad = True
 
@@ -197,13 +196,16 @@ def main(args):
   # train and validation sets after each epoch.
   for epoch in range(args.num_epochs2):
     print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs2))
-    if epoch >= 8  and epoch < 14:
+    if epoch >= 10  and epoch < 17:
       lr2 = lr2 / 10.0
-    elif epoch >= 14 and epoch < 18:
+    elif epoch >= 17 and epoch < 22:
       lr2 = lr2 / 10.0
-    elif epoch >= 18:
+    elif epoch >= 22:
       lr2 = lr2 / 10.0
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr2)
+    optimizer = torch.optim.Adam([
+                {'params': model.fc.parameters(), 'lr' : 10*lr2},
+                {'params': model.parameters()}
+            ], lr=lr2)
     run_epoch(model, loss_fn, train_loader, optimizer, dtype, args.save_loss_path)
 
     val_f2 = check_f2(model, val_loader, dtype, recomp_thresh = True)
