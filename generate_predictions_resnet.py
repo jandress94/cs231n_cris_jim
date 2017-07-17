@@ -119,7 +119,7 @@ def main(args):
 
   # First load the pretrained densenet-169 model; this will download the model
   # weights from the web the first time you run it.
-  model = torchvision.models.resnet152(pretrained=True)
+  model = torchvision.models.resnet50(pretrained=True)
 
   # Reinitialize the last layer of the model. Each pretrained model has a
   # slightly different structure, but from the densenet class definition
@@ -144,40 +144,74 @@ def main(args):
   y_pred = np.zeros((len(test_dset), 17))
   filenames_list = []
 
-  count = 0
-  #Use multiple loaders!
-  for x, filenames in test_loader:
-    print_progress(count, len(test_dset), 'Running example')
+  test_loaders = [test_loader]
 
-    x_var = Variable(x.type(dtype), volatile = True)
-    scores = model(x_var)
-    normalized_scores = torch.sigmoid(scores)
+  for i in range(1, 8):
+    angle = (i % 4) * 90
+    if i > 3:
+      test_transform = T.Compose([
+        T.Scale(224),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        Transpose(1, 2),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+    else:
+      test_transform = T.Compose([
+        T.Scale(224),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
 
-    if thresholds.size(0) != x.size(0):
-      thresholds = torch.Tensor(label_thresholds).type(dtype)
-      thresholds = torch.cat([thresholds for _ in range(x.size(0))], 0)
+    test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+    test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+    test_loaders.append(test_loader)
 
-    normalized_scores = normalized_scores.data
-    preds = normalized_scores >= thresholds
-    preds = preds.cpu().numpy()
-    # make sure that at least one class is predicted for each
-    num_predicted = np.sum(preds, 1, keepdims=True)
-    no_preds = num_predicted == 0
-    no_preds = no_preds.astype(np.int)
+  y_pred_sum = np.zeros((len(test_dset), 17))
+  for i, test_loader in enumerate(test_loaders):
+    print('Test Time Augmentation ' + str(i))
+    count = 0
+    for x, filenames in test_loader:
+      print_progress(count, len(test_dset), 'Running example')
 
-    indices = np.argmax(normalized_scores.cpu().numpy(), 1)
-    backup_preds = np.zeros_like(preds)
-    backup_preds[indices] = no_preds
-    preds += backup_preds
+      x_var = Variable(x.type(dtype), volatile = True)
+      scores = model(x_var)
+      normalized_scores = torch.sigmoid(scores)
 
-    #preds = preds.numpy()
+      if thresholds.size(0) != x.size(0):
+        thresholds = torch.Tensor(label_thresholds).type(dtype)
+        thresholds = torch.cat([thresholds for _ in range(x.size(0))], 0)
 
-    y_pred[count:count + x.size(0), :] = preds
-    filenames_list += filenames
-    count += x.size(0)
+      normalized_scores = normalized_scores.data
+      preds = normalized_scores >= thresholds
+      preds = preds.cpu().numpy()
+      # make sure that at least one class is predicted for each
+      num_predicted = np.sum(preds, 1, keepdims=True)
+      no_preds = num_predicted == 0
+      no_preds = no_preds.astype(np.int)
 
-  y_pred = y_pred.astype(np.int)
-  predictions = [' '.join(classes[y_pred_row == 1]) for y_pred_row in y_pred]
+      indices = np.argmax(normalized_scores.cpu().numpy(), 1)
+      backup_preds = np.zeros_like(preds)
+      backup_preds[indices] = no_preds
+      preds += backup_preds
+
+      #preds = preds.numpy()
+
+      y_pred[count:count + x.size(0), :] = preds
+      if i == 0:
+        filenames_list += filenames
+      count += x.size(0)
+
+    y_pred = y_pred.astype(np.int)
+    y_pred_sum += y_pred
+
+  y_pred = y_pred_sum / float(len(test_loaders))
+  predictions = [' '.join(classes[y_pred_row >= 0.5]) for y_pred_row in y_pred]
 
   subm = pd.DataFrame()
   subm['image_name'] = filenames_list
