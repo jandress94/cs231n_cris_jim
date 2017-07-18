@@ -12,6 +12,8 @@ import torchvision
 import torchvision.transforms as T
 from MultiLabelImageFolderTest import *
 from MultiLabelImageFolder import *
+from per_class_utils import *
+from affine_transform import *
 from torchvision.datasets import ImageFolder
 
 parser = argparse.ArgumentParser()
@@ -39,51 +41,6 @@ def find_classes(label_list_file):
     classes = np.array([line.strip() for line in f])
     f.close()
     return classes
-
-def compute_f2(scores, y, threshold, axis, eps = 1e-8):
-  preds = scores >= threshold
-  preds = preds.cpu().int()
-  y = y.int()
-    
-  pred_pos = torch.sum(preds, axis).float()
-  real_pos = torch.sum(y, axis).float()
-  true_pos = torch.sum(y * preds, axis).float()
-  
-  p = 1.0 * true_pos / (pred_pos + eps)
-  r = 1.0 * true_pos / (real_pos + eps)
-
-  beta = 2
-  return (1.0 + beta**2)*p*r / (beta**2 * p + r + eps)
-
-def recompute_thresholds(model, loader, dtype, eps = 1e-8):
-  scores_list = []
-  ys = []
-
-  for x, y in loader:
-    x_var = Variable(x.type(dtype), volatile = True)
-    scores = model(x_var)
-    normalized_scores = torch.sigmoid(scores)
-    scores_list.append(normalized_scores)
-    ys.append(y)
-
-  scores = torch.cat(scores_list, 0).data
-  ys = torch.cat(ys, 0)
-
-  best_thresh = np.zeros((17,))
-  best_f2 = -np.ones((17,))
-
-  for t in range(1000):
-    print_progress(t, 1000, 'Recomputing thresholds')
-    thresh = (1 + t) * 0.001
-
-    f2 = compute_f2(scores, ys, thresh, 0).numpy()
-
-    better_mask = f2 > best_f2
-    better_mask = better_mask.astype(np.int)
-    best_thresh = (1 - better_mask) * best_thresh + better_mask * thresh
-    best_f2 = (1 - better_mask) * best_f2 + better_mask * f2
-
-  return best_thresh
 
 def main(args):
   global label_thresholds
@@ -127,11 +84,6 @@ def main(args):
     T.ToTensor(),            
     T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
   ])
-
-  def transform_target_to_1_0_vect(target):
-    vect = np.zeros((17,))
-    vect[target] = 1
-    return vect
   
   # You load data in PyTorch by first constructing a Dataset object which
   # knows how to load individual data points (images and labels) and apply a
@@ -168,7 +120,7 @@ def main(args):
 
   # First load the pretrained densenet-169 model; this will download the model
   # weights from the web the first time you run it.
-  model = torchvision.models.resnet18(pretrained=True)
+  model = torchvision.models.resnet50(pretrained=True)
 
   # Reinitialize the last layer of the model. Each pretrained model has a
   # slightly different structure, but from the densenet class definition
@@ -193,48 +145,180 @@ def main(args):
   y_pred = np.zeros((len(test_dset), 17))
   filenames_list = []
 
-  count = 0
-  for x, filenames in test_loader:
-    print_progress(count, len(test_dset), 'Running example')
+  test_loaders = []
+  '''
+  test_transform = T.Compose([
+        T.Scale(256),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+  test_loaders.append(test_loader)
 
-    x_var = Variable(x.type(dtype), volatile = True)
-    scores = model(x_var)
-    normalized_scores = torch.sigmoid(scores)
+  test_transform = T.Compose([
+        T.Scale(280),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+  test_loaders.append(test_loader)
 
-    if thresholds.size(0) != x.size(0):
-      thresholds = torch.Tensor(label_thresholds).type(dtype)
-      thresholds = torch.cat([thresholds for _ in range(x.size(0))], 0)
+  test_transform = T.Compose([
+        T.Scale(232),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+  test_loaders.append(test_loader)
 
-    normalized_scores = normalized_scores.data
-    preds = normalized_scores >= thresholds
-    preds = preds.cpu().numpy()
-    # make sure that at least one class is predicted for each
-    num_predicted = np.sum(preds, 1, keepdims=True)
-    no_preds = num_predicted == 0
-    no_preds = no_preds.astype(np.int)
+  test_transform = T.Compose([
+        T.Scale(300),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+  test_loaders.append(test_loader)
+  '''
 
-    indices = np.argmax(normalized_scores.cpu().numpy(), 1)
-    backup_preds = np.zeros_like(preds)
-    backup_preds[indices] = no_preds
-    preds += backup_preds
+  for i in range(8):
+    angle = (i % 4) * 90
+    if i > 3:
+      test_transform = T.Compose([
+        T.Scale(224),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        Transpose(1, 2),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+    else:
+      test_transform = T.Compose([
+        T.Scale(224),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
 
-    #preds = preds.numpy()
+    test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+    test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+    test_loaders.append(test_loader)
 
-    y_pred[count:count + x.size(0), :] = preds
-    filenames_list += filenames
-    count += x.size(0)
+  for i in range(8):
+    angle = (i % 4) * 90
+    if i > 3:
+      test_transform = T.Compose([
+        T.Scale(256),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        Transpose(1, 2),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+    else:
+      test_transform = T.Compose([
+        T.Scale(256),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
 
-  y_pred = y_pred.astype(np.int)
-  predictions = [' '.join(classes[y_pred_row == 1]) for y_pred_row in y_pred]
+    test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+    test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+    test_loaders.append(test_loader)
+
+  for i in range(8):
+    angle = (i % 4) * 90
+    if i > 3:
+      test_transform = T.Compose([
+        T.Scale(288),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        Transpose(1, 2),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+    else:
+      test_transform = T.Compose([
+        T.Scale(288),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+
+    test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+    test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+    test_loaders.append(test_loader)
+
+  y_pred_sum = np.zeros((len(test_dset), 17))
+  for i, test_loader in enumerate(test_loaders):
+    print('Test Time Augmentation ' + str(i))
+    count = 0
+    for x, filenames in test_loader:
+      print_progress(count, len(test_dset), 'Running example')
+
+      x_var = Variable(x.type(dtype), volatile = True)
+      scores = model(x_var)
+      normalized_scores = torch.sigmoid(scores)
+
+      if thresholds.size(0) != x.size(0):
+        thresholds = torch.Tensor(label_thresholds).type(dtype)
+        thresholds = torch.cat([thresholds for _ in range(x.size(0))], 0)
+
+      normalized_scores = normalized_scores.data
+      preds = normalized_scores >= thresholds
+      preds = preds.cpu().numpy()
+      # make sure that at least one class is predicted for each
+      num_predicted = np.sum(preds, 1, keepdims=True)
+      no_preds = num_predicted == 0
+      no_preds = no_preds.astype(np.int)
+
+      indices = np.argmax(normalized_scores.cpu().numpy(), 1)
+      backup_preds = np.zeros_like(preds)
+      backup_preds[indices] = no_preds
+      preds += backup_preds
+
+      #preds = preds.numpy()
+
+      y_pred[count:count + x.size(0), :] = preds
+      if i == 0:
+        filenames_list += filenames
+      count += x.size(0)
+
+    y_pred = y_pred.astype(np.int)
+    y_pred_sum += y_pred
+
+  y_pred = y_pred_sum / float(len(test_loaders))
+  predictions = [' '.join(classes[y_pred_row >= 0.5]) for y_pred_row in y_pred]
 
   subm = pd.DataFrame()
   subm['image_name'] = filenames_list
   subm['tags'] = predictions
   subm.to_csv(args.sub_file, index=False)
-
-
-def print_progress(index, total, prompt):
-    print('%s %d / %d' % (prompt, index, total))
 
 if __name__ == '__main__':
   args = parser.parse_args()

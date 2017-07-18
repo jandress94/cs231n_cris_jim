@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
-parser.add_argument('--val', default='../cs231n_data/val.csv')
+parser.add_argument('--val', default='../cs231n_data/val_label_only.csv')
 parser.add_argument('--train', default='../cs231n_data/train_v2.csv')
 parser.add_argument('--loss', default='../cs231n_data/loss.txt')
 parser.add_argument('--root', default='../cs231n_data/')
@@ -73,6 +73,12 @@ def precision_and_recall(args):
 
         writer.writeheader()
         for c in range(num_classes):
+            if counts[0, c] == 0:
+                print "Zero true positive"
+            if counts[1, c] == 0:
+                print "Zero predicted positive"
+            if counts[2, c] == 0:
+                print "Zero actual positives"
             writer.writerow({'Class': classes[c], 'Precision': counts[0, c] / counts[1, c], 'Recall': counts[0, c] / counts[2, c]})
 
 def plot_loss_and_f2(args):
@@ -133,7 +139,7 @@ def plot_loss_and_f2(args):
 
 if __name__ == '__main__':
     args = parser.parse_args()
-    #precision_and_recall(args)
-    plot_loss_and_f2(args)
+    precision_and_recall(args)
+    #plot_loss_and_f2(args)
 
 
