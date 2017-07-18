@@ -76,7 +76,7 @@ def main(args):
     
     # Build data loader
     train_dset = MultiLabelImageFolder(args.train_dir, args.train_labels_file, args.label_list_file, \
-        transform=train_transform, target_transform = transform_target_add_end)
+        transform=train_transform, target_transform = transform_target_to_padded)
 
     def collate_fn(data):
         data.sort(key=lambda x: len(x[1]), reverse=True)
@@ -172,6 +172,8 @@ def run_epoch(encoder, decoder, loader, optimizer, save_loss_path, is_cnn_traini
     decoder.train()
     loss_list = []
 
+    loss_fn = nn.CrossEntropyLoss()
+
     for i, (images, labels, lengths) in enumerate(loader):
         # Set mini-batch dataset
         images = to_var(images)
@@ -187,11 +189,17 @@ def run_epoch(encoder, decoder, loader, optimizer, save_loss_path, is_cnn_traini
 
         T_max = len(unbound_labels)
 
+        '''
         log_soft_scores = [-nn.LogSoftmax()(time_step) for time_step in unbound_outputs]
         loss_terms = [torch.gather(log_soft_scores[t], 1, torch.unsqueeze(unbound_labels[t], 1)) for t in range(T_max)]
         masks = [torch.autograd.Variable((torch.Tensor(lengths) > t).float().cuda(), requires_grad = True) for t in range(T_max)]
         masked_loss_terms = sum([loss_terms[t] * masks[t] for t in range(T_max)])
         loss = torch.sum(masked_loss_terms) / torch.sum(sum(masks))
+        '''
+        losses = [loss_fn(unbound_outputs[i], unbound_labels[i]) for i in range(T_max)]
+        loss = torch.sum(sum(losses))
+
+
 
         loss.backward()
         optimizer.step()
@@ -225,6 +233,7 @@ def check_f2(encoder, decoder, loader, dtype, is_cnn_training = False, eps = 1e-
             pred = set(pred)
 
             true_labels = set(labels[j])
+            true_labels.remove(17)
             
             true_pos = len(pred & true_labels)
             p = 1.0 * true_pos / (len(pred) + eps)
