@@ -13,6 +13,7 @@ import torchvision.transforms as T
 from MultiLabelImageFolderTest import *
 from MultiLabelImageFolder import *
 from per_class_utils import *
+from affine_transform import *
 from torchvision.datasets import ImageFolder
 
 parser = argparse.ArgumentParser()
@@ -145,6 +146,30 @@ def main(args):
   filenames_list = []
 
   test_loaders = [test_loader]
+
+  test_transform = T.Compose([
+        T.Scale(256),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+  test_loaders.append(test_loader)
+
+  test_transform = T.Compose([
+        T.Scale(280),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+  test_loaders.append(test_loader)
 
   for i in range(1, 8):
     angle = (i % 4) * 90
