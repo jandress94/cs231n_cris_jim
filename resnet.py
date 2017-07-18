@@ -78,7 +78,7 @@ def main(args):
     Transpose(1, 2),
     RandomFlip(h = True, v = False),
     RandomFlip(h = False, v = True),
-    RandomChoiceRotate(values = [0, 90, 180, 270], p = [0.25, 0.25, 0.25, 0.25])
+    RandomChoiceRotate(values = [0, 90, 180, 270], p = [0.25, 0.25, 0.25, 0.25]),
     T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
   ])
   
@@ -204,7 +204,7 @@ def main(args):
       lr2 = lr2 / 10.0
     optimizer = torch.optim.Adam([
                 {'params': model.fc.parameters(), 'lr' : 10*lr2},
-                {'params': model.parameters()}
+                {'params': set(model.parameters()) - set(model.fc.parameters())}
             ], lr=lr2)
     run_epoch(model, loss_fn, train_loader, optimizer, dtype, args.save_loss_path)
 
