@@ -17,10 +17,10 @@ from per_class_utils import *
 from affine_transform import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-all/')
-#parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-small/')
-parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2-all.csv')
-#parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2-small.csv')
+#parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-all/')
+parser.add_argument('--train_dir', default='../cs231n_data/train-jpg-small/')
+#parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2-all.csv')
+parser.add_argument('--train_labels_file', default = '../cs231n_data/train_v2-small.csv')
 parser.add_argument('--label_list_file', default = '../cs231n_data/labels.txt')
 
 parser.add_argument('--val_dir', default='../cs231n_data/val-jpg/')
