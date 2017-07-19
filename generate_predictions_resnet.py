@@ -292,11 +292,11 @@ def main(args):
       # make sure that at least one class is predicted for each
       num_predicted = np.sum(preds, 1, keepdims=True)
       no_preds = num_predicted == 0
-      no_preds = no_preds.astype(np.int)
+      no_preds = np.squeeze(no_preds.astype(np.int))
 
       indices = np.argmax(normalized_scores.cpu().numpy(), 1)
       backup_preds = np.zeros_like(preds)
-      backup_preds[indices] = no_preds
+      backup_preds[np.arange(len(backup_preds)), indices] = no_preds
       preds += backup_preds
 
       #preds = preds.numpy()
