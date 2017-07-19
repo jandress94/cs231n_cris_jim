@@ -34,7 +34,7 @@ parser.add_argument('--batch_size', default=64, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
 
 parser.add_argument('--num_epochs1', default=5, type=int)
-parser.add_argument('--num_epochs2', default=25, type=int)
+parser.add_argument('--num_epochs2', default=23, type=int)
 parser.add_argument('--lr1', default=1e-3, type=float)
 parser.add_argument('--lr2', default=1e-4, type=float)
 parser.add_argument('--use_gpu', action='store_true')
@@ -196,11 +196,11 @@ def main(args):
   # train and validation sets after each epoch.
   for epoch in range(args.num_epochs2):
     print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs2))
-    if epoch >= 10  and epoch < 17:
+    if epoch >= 12  and epoch < 17:
       lr2 = lr2 / 10.0
-    elif epoch >= 17 and epoch < 22:
+    elif epoch >= 17 and epoch < 21:
       lr2 = lr2 / 10.0
-    elif epoch >= 22:
+    elif epoch >= 21:
       lr2 = lr2 / 10.0
     optimizer = torch.optim.Adam([
                 {'params': model.fc.parameters(), 'lr' : 10*lr2},
