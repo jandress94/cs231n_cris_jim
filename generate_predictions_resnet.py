@@ -146,6 +146,7 @@ def main(args):
   filenames_list = []
 
   test_loaders = []
+  '''
   test_transform = T.Compose([
         T.Scale(256),
         T.CenterCrop(224),
@@ -158,7 +159,7 @@ def main(args):
                     num_workers=args.num_workers)
   test_loaders.append(test_loader)
   test_transform = T.Compose([
-        T.Scale(288),
+        T.Scale(280),
         T.CenterCrop(224),
         T.ToTensor(),
         T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
@@ -168,28 +169,29 @@ def main(args):
                     batch_size=args.batch_size,
                     num_workers=args.num_workers)
   test_loaders.append(test_loader)
-  # test_transform = T.Compose([
-  #       T.Scale(232),
-  #       T.CenterCrop(224),
-  #       T.ToTensor(),
-  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-  #     ])
-  # test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  # test_loader = DataLoader(test_dset,
-  #                   batch_size=args.batch_size,
-  #                   num_workers=args.num_workers)
-  # test_loaders.append(test_loader)
-  # test_transform = T.Compose([
-  #       T.Scale(300),
-  #       T.CenterCrop(224),
-  #       T.ToTensor(),
-  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-  #     ])
-  # test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  # test_loader = DataLoader(test_dset,
-  #                   batch_size=args.batch_size,
-  #                   num_workers=args.num_workers)
-  # test_loaders.append(test_loader)
+  test_transform = T.Compose([
+        T.Scale(232),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+  test_loaders.append(test_loader)
+  test_transform = T.Compose([
+        T.Scale(300),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+  test_loaders.append(test_loader)
+  '''
 
   for i in range(8):
     angle = (i % 4) * 90
@@ -217,57 +219,57 @@ def main(args):
                     num_workers=args.num_workers)
     test_loaders.append(test_loader)
 
-  # for i in range(8):
-  #   angle = (i % 4) * 90
-  #   if i > 3:
-  #     test_transform = T.Compose([
-  #       T.Scale(256),
-  #       T.CenterCrop(224),
-  #       T.ToTensor(),
-  #       RandomChoiceRotate(values = [angle], p = [1.0]),
-  #       Transpose(1, 2),
-  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-  #     ])
-  #   else:
-  #     test_transform = T.Compose([
-  #       T.Scale(256),
-  #       T.CenterCrop(224),
-  #       T.ToTensor(),
-  #       RandomChoiceRotate(values = [angle], p = [1.0]),
-  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-  #     ])
+  for i in range(8):
+    angle = (i % 4) * 90
+    if i > 3:
+      test_transform = T.Compose([
+        T.Scale(256),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        Transpose(1, 2),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+    else:
+      test_transform = T.Compose([
+        T.Scale(256),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
 
-  #   test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  #   test_loader = DataLoader(test_dset,
-  #                   batch_size=args.batch_size,
-  #                   num_workers=args.num_workers)
-  #   test_loaders.append(test_loader)
+    test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+    test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+    test_loaders.append(test_loader)
 
-  # for i in range(8):
-  #   angle = (i % 4) * 90
-  #   if i > 3:
-  #     test_transform = T.Compose([
-  #       T.Scale(288),
-  #       T.CenterCrop(224),
-  #       T.ToTensor(),
-  #       RandomChoiceRotate(values = [angle], p = [1.0]),
-  #       Transpose(1, 2),
-  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-  #     ])
-  #   else:
-  #     test_transform = T.Compose([
-  #       T.Scale(288),
-  #       T.CenterCrop(224),
-  #       T.ToTensor(),
-  #       RandomChoiceRotate(values = [angle], p = [1.0]),
-  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-  #     ])
+  for i in range(8):
+    angle = (i % 4) * 90
+    if i > 3:
+      test_transform = T.Compose([
+        T.Scale(288),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        Transpose(1, 2),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
+    else:
+      test_transform = T.Compose([
+        T.Scale(288),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        RandomChoiceRotate(values = [angle], p = [1.0]),
+        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+      ])
 
-  #   test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  #   test_loader = DataLoader(test_dset,
-  #                   batch_size=args.batch_size,
-  #                   num_workers=args.num_workers)
-  #   test_loaders.append(test_loader)
+    test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+    test_loader = DataLoader(test_dset,
+                    batch_size=args.batch_size,
+                    num_workers=args.num_workers)
+    test_loaders.append(test_loader)
 
   y_pred_sum = np.zeros((len(test_dset), 17))
   for i, test_loader in enumerate(test_loaders):

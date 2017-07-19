@@ -33,10 +33,10 @@ parser.add_argument('--save_loss_path', default='../cs231n_data/saved_models/los
 parser.add_argument('--batch_size', default=64, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
 
-parser.add_argument('--num_epochs1', default=0, type=int)
-parser.add_argument('--num_epochs2', default=25, type=int)
+parser.add_argument('--num_epochs1', default=5, type=int)
+parser.add_argument('--num_epochs2', default=23, type=int)
 parser.add_argument('--lr1', default=1e-3, type=float)
-parser.add_argument('--lr2', default=1e-3, type=float)
+parser.add_argument('--lr2', default=1e-4, type=float)
 parser.add_argument('--use_gpu', action='store_true')
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
@@ -140,7 +140,7 @@ def main(args):
   # we see that the final fully-connected layer is stored in model.classifier:
   # https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py#L111
   num_classes = len(train_dset.classes)
-  model.classifier = nn.Linear(model.classifier.in_features, num_classes)
+  model.fc = nn.Linear(model.fc.in_features, num_classes)
 
   # Cast the model to the correct datatype, and create a loss function for
   # training the model.
@@ -155,11 +155,11 @@ def main(args):
 
   for param in model.parameters():
     param.requires_grad = False
-  for param in model.classifier.parameters():
+  for param in model.fc.parameters():
     param.requires_grad = True
 
   # Construct an Optimizer object for updating the last layer only.
-  optimizer = torch.optim.Adam(model.classifier.parameters(), lr=args.lr1)
+  optimizer = torch.optim.Adam(model.fc.parameters(), lr=args.lr1)
 
   # set up to save the best model
   max_f2 = -np.inf
@@ -196,23 +196,29 @@ def main(args):
   # train and validation sets after each epoch.
   for epoch in range(args.num_epochs2):
     print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs2))
-    if epoch >= 10  and epoch < 20:
+    if epoch >= 12  and epoch < 17:
       lr2 = lr2 / 10.0
-    elif epoch >= 20:
+    elif epoch >= 17 and epoch < 21:
+      lr2 = lr2 / 10.0
+    elif epoch >= 21:
       lr2 = lr2 / 10.0
     optimizer = torch.optim.Adam([
-                {'params': model.classifier.parameters(), 'lr' : 10*lr2},
-                {'params': set(model.parameters()) - set(model.classifier.parameters())}
+                {'params': model.fc.parameters(), 'lr' : 10*lr2},
+                {'params': set(model.parameters()) - set(model.fc.parameters())}
             ], lr=lr2)
     run_epoch(model, loss_fn, train_loader, optimizer, dtype, args.save_loss_path)
 
     val_f2 = check_f2(model, val_loader, dtype, recomp_thresh = True)
+    if epoch >= 20:
+        train_f2 = check_f2(model, train_loader, dtype)
+        print('Train f2: ', train_f2)
     print('Val f2: ', val_f2)
     if val_f2 > max_f2:
         print('found a new best!')
         max_f2 = val_f2
         torch.save(model.state_dict(), args.save_model_path)
         np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
+   # print('Train f2: ', train_f2)
     print()
 
 def run_epoch(model, loss_fn, loader, optimizer, dtype, save_loss_path):
