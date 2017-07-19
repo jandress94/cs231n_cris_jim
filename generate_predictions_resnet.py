@@ -120,7 +120,7 @@ def main(args):
 
   # First load the pretrained densenet-169 model; this will download the model
   # weights from the web the first time you run it.
-  model = torchvision.models.resnet34(pretrained=True)
+  model = torchvision.models.resnet50(pretrained=True)
 
   # Reinitialize the last layer of the model. Each pretrained model has a
   # slightly different structure, but from the densenet class definition
@@ -146,7 +146,6 @@ def main(args):
   filenames_list = []
 
   test_loaders = []
-
   test_transform = T.Compose([
         T.Scale(256),
         T.CenterCrop(224),
@@ -158,7 +157,6 @@ def main(args):
                     batch_size=args.batch_size,
                     num_workers=args.num_workers)
   test_loaders.append(test_loader)
-
   test_transform = T.Compose([
         T.Scale(288),
         T.CenterCrop(224),
@@ -170,31 +168,29 @@ def main(args):
                     batch_size=args.batch_size,
                     num_workers=args.num_workers)
   test_loaders.append(test_loader)
-'''
-  test_transform = T.Compose([
-        T.Scale(232),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-      ])
-  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  test_loader = DataLoader(test_dset,
-                    batch_size=args.batch_size,
-                    num_workers=args.num_workers)
-  test_loaders.append(test_loader)
+  # test_transform = T.Compose([
+  #       T.Scale(232),
+  #       T.CenterCrop(224),
+  #       T.ToTensor(),
+  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+  #     ])
+  # test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  # test_loader = DataLoader(test_dset,
+  #                   batch_size=args.batch_size,
+  #                   num_workers=args.num_workers)
+  # test_loaders.append(test_loader)
+  # test_transform = T.Compose([
+  #       T.Scale(300),
+  #       T.CenterCrop(224),
+  #       T.ToTensor(),
+  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+  #     ])
+  # test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  # test_loader = DataLoader(test_dset,
+  #                   batch_size=args.batch_size,
+  #                   num_workers=args.num_workers)
+  # test_loaders.append(test_loader)
 
-  test_transform = T.Compose([
-        T.Scale(300),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-      ])
-  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  test_loader = DataLoader(test_dset,
-                    batch_size=args.batch_size,
-                    num_workers=args.num_workers)
-  test_loaders.append(test_loader)
-  '''
   for i in range(8):
     angle = (i % 4) * 90
     if i > 3:
@@ -220,59 +216,59 @@ def main(args):
                     batch_size=args.batch_size,
                     num_workers=args.num_workers)
     test_loaders.append(test_loader)
-'''
-  for i in range(8):
-    angle = (i % 4) * 90
-    if i > 3:
-      test_transform = T.Compose([
-        T.Scale(256),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        RandomChoiceRotate(values = [angle], p = [1.0]),
-        Transpose(1, 2),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-      ])
-    else:
-      test_transform = T.Compose([
-        T.Scale(256),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        RandomChoiceRotate(values = [angle], p = [1.0]),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-      ])
 
-    test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-    test_loader = DataLoader(test_dset,
-                    batch_size=args.batch_size,
-                    num_workers=args.num_workers)
-    test_loaders.append(test_loader)
+  # for i in range(8):
+  #   angle = (i % 4) * 90
+  #   if i > 3:
+  #     test_transform = T.Compose([
+  #       T.Scale(256),
+  #       T.CenterCrop(224),
+  #       T.ToTensor(),
+  #       RandomChoiceRotate(values = [angle], p = [1.0]),
+  #       Transpose(1, 2),
+  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+  #     ])
+  #   else:
+  #     test_transform = T.Compose([
+  #       T.Scale(256),
+  #       T.CenterCrop(224),
+  #       T.ToTensor(),
+  #       RandomChoiceRotate(values = [angle], p = [1.0]),
+  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+  #     ])
 
-  for i in range(8):
-    angle = (i % 4) * 90
-    if i > 3:
-      test_transform = T.Compose([
-        T.Scale(288),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        RandomChoiceRotate(values = [angle], p = [1.0]),
-        Transpose(1, 2),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-      ])
-    else:
-      test_transform = T.Compose([
-        T.Scale(288),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        RandomChoiceRotate(values = [angle], p = [1.0]),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-      ])
+  #   test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  #   test_loader = DataLoader(test_dset,
+  #                   batch_size=args.batch_size,
+  #                   num_workers=args.num_workers)
+  #   test_loaders.append(test_loader)
 
-    test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-    test_loader = DataLoader(test_dset,
-                    batch_size=args.batch_size,
-                    num_workers=args.num_workers)
-    test_loaders.append(test_loader)
-'''
+  # for i in range(8):
+  #   angle = (i % 4) * 90
+  #   if i > 3:
+  #     test_transform = T.Compose([
+  #       T.Scale(288),
+  #       T.CenterCrop(224),
+  #       T.ToTensor(),
+  #       RandomChoiceRotate(values = [angle], p = [1.0]),
+  #       Transpose(1, 2),
+  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+  #     ])
+  #   else:
+  #     test_transform = T.Compose([
+  #       T.Scale(288),
+  #       T.CenterCrop(224),
+  #       T.ToTensor(),
+  #       RandomChoiceRotate(values = [angle], p = [1.0]),
+  #       T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+  #     ])
+
+  #   test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
+  #   test_loader = DataLoader(test_dset,
+  #                   batch_size=args.batch_size,
+  #                   num_workers=args.num_workers)
+  #   test_loaders.append(test_loader)
+
   y_pred_sum = np.zeros((len(test_dset), 17))
   for i, test_loader in enumerate(test_loaders):
     print('Test Time Augmentation ' + str(i))
@@ -294,11 +290,11 @@ def main(args):
       # make sure that at least one class is predicted for each
       num_predicted = np.sum(preds, 1, keepdims=True)
       no_preds = num_predicted == 0
-      no_preds = np.squeeze(no_preds.astype(np.int))
+      no_preds = no_preds.astype(np.int)
 
       indices = np.argmax(normalized_scores.cpu().numpy(), 1)
       backup_preds = np.zeros_like(preds)
-      backup_preds[np.arange(len(backup_preds)), indices] = no_preds
+      backup_preds[indices] = no_preds
       preds += backup_preds
 
       #preds = preds.numpy()
