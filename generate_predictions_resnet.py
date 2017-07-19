@@ -146,7 +146,7 @@ def main(args):
   filenames_list = []
 
   test_loaders = []
-  '''
+
   test_transform = T.Compose([
         T.Scale(256),
         T.CenterCrop(224),
@@ -160,7 +160,7 @@ def main(args):
   test_loaders.append(test_loader)
 
   test_transform = T.Compose([
-        T.Scale(280),
+        T.Scale(288),
         T.CenterCrop(224),
         T.ToTensor(),
         T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
@@ -170,7 +170,7 @@ def main(args):
                     batch_size=args.batch_size,
                     num_workers=args.num_workers)
   test_loaders.append(test_loader)
-
+'''
   test_transform = T.Compose([
         T.Scale(232),
         T.CenterCrop(224),
@@ -195,7 +195,6 @@ def main(args):
                     num_workers=args.num_workers)
   test_loaders.append(test_loader)
   '''
-
   for i in range(8):
     angle = (i % 4) * 90
     if i > 3:
@@ -221,7 +220,7 @@ def main(args):
                     batch_size=args.batch_size,
                     num_workers=args.num_workers)
     test_loaders.append(test_loader)
-
+'''
   for i in range(8):
     angle = (i % 4) * 90
     if i > 3:
@@ -273,7 +272,7 @@ def main(args):
                     batch_size=args.batch_size,
                     num_workers=args.num_workers)
     test_loaders.append(test_loader)
-
+'''
   y_pred_sum = np.zeros((len(test_dset), 17))
   for i, test_loader in enumerate(test_loaders):
     print('Test Time Augmentation ' + str(i))

@@ -35,7 +35,7 @@ parser.add_argument('--num_workers', default=4, type=int)
 
 parser.add_argument('--num_epochs1', default=0, type=int)
 parser.add_argument('--num_epochs2', default=25, type=int)
-#parser.add_argument('--lr1', default=1e-3, type=float)
+parser.add_argument('--lr1', default=1e-3, type=float)
 parser.add_argument('--lr2', default=1e-3, type=float)
 parser.add_argument('--use_gpu', action='store_true')
 
@@ -140,7 +140,7 @@ def main(args):
   # we see that the final fully-connected layer is stored in model.classifier:
   # https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py#L111
   num_classes = len(train_dset.classes)
-  model.fc = nn.Linear(model.fc.in_features, num_classes)
+  model.classifier = nn.Linear(model.classifier.in_features, num_classes)
 
   # Cast the model to the correct datatype, and create a loss function for
   # training the model.
@@ -155,11 +155,11 @@ def main(args):
 
   for param in model.parameters():
     param.requires_grad = False
-  for param in model.fc.parameters():
+  for param in model.classifier.parameters():
     param.requires_grad = True
 
   # Construct an Optimizer object for updating the last layer only.
-  optimizer = torch.optim.Adam(model.fc.parameters(), lr=args.lr1)
+  optimizer = torch.optim.Adam(model.classifier.parameters(), lr=args.lr1)
 
   # set up to save the best model
   max_f2 = -np.inf
@@ -201,8 +201,8 @@ def main(args):
     elif epoch >= 20:
       lr2 = lr2 / 10.0
     optimizer = torch.optim.Adam([
-                {'params': model.fc.parameters(), 'lr' : 10*lr2},
-                {'params': set(model.parameters()) - set(model.fc.parameters())}
+                {'params': model.classifier.parameters(), 'lr' : 10*lr2},
+                {'params': set(model.parameters()) - set(model.classifier.parameters())}
             ], lr=lr2)
     run_epoch(model, loss_fn, train_loader, optimizer, dtype, args.save_loss_path)
 
