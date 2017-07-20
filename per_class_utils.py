@@ -75,8 +75,6 @@ def check_f2(model, loader, dtype, recomp_thresh = False, eps = 1e-8):
     print('Computed new thresholds:', label_thresholds)
 
   running_f2, num_samples = 0.0, 0
-
-  #thresholds = torch.Tensor([0.2625, 0.2375, 0.245, 0.21, 0.205, 0.1625, 0.265, 0.2175, 0.1925, 0.12, 0.2225, 0.14, 0.1375, 0.19, 0.085, 0.0475, 0.0875]).type(dtype)
   thresholds = torch.Tensor(label_thresholds).type(dtype)
 
   for mini_index, (x, y) in enumerate(loader):

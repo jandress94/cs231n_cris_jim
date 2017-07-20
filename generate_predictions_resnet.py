@@ -34,8 +34,6 @@ parser.add_argument('--use_gpu', action='store_true')
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
-#label_thresholds = np.array([[ 0.174,  0.157,  0.11,   0.084,  0.125,  0.127,  0.078,  0.187,  0.225,  0.172,  0.049,  0.128,  0.267,  0.056,  0.03,   0.014,  0.273]])
-
 def find_classes(label_list_file):
     f = open(label_list_file)
     classes = np.array([line.strip() for line in f])
@@ -137,8 +135,6 @@ def main(args):
   model.eval()
 
   label_thresholds = recompute_thresholds(model, train_loader, dtype)
-
-  #label_thresholds = np.load(args.save_thresholds_path, allow_pickle = False)
   thresholds = torch.Tensor(label_thresholds).type(dtype)
   classes = find_classes(args.label_list_file)
 
@@ -146,52 +142,9 @@ def main(args):
   filenames_list = []
 
   test_loaders = []
-  '''
-  test_transform = T.Compose([
-        T.Scale(256),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-      ])
-  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  test_loader = DataLoader(test_dset,
-                    batch_size=args.batch_size,
-                    num_workers=args.num_workers)
-  test_loaders.append(test_loader)
-  test_transform = T.Compose([
-        T.Scale(280),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-      ])
-  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  test_loader = DataLoader(test_dset,
-                    batch_size=args.batch_size,
-                    num_workers=args.num_workers)
-  test_loaders.append(test_loader)
-  test_transform = T.Compose([
-        T.Scale(232),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-      ])
-  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  test_loader = DataLoader(test_dset,
-                    batch_size=args.batch_size,
-                    num_workers=args.num_workers)
-  test_loaders.append(test_loader)
-  test_transform = T.Compose([
-        T.Scale(300),
-        T.CenterCrop(224),
-        T.ToTensor(),
-        T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-      ])
-  test_dset = MultiLabelImageFolderTest(args.test_dir, transform=test_transform)
-  test_loader = DataLoader(test_dset,
-                    batch_size=args.batch_size,
-                    num_workers=args.num_workers)
-  test_loaders.append(test_loader)
-  '''
+
+  # Test Time Augmentations: Use all 8 possible transformations of a square and 3 different scales for a total of 24 transforms.
+  # Predict the labels for each of the 24 images and combine the results using majority voting.
 
   for i in range(8):
     angle = (i % 4) * 90
@@ -298,8 +251,6 @@ def main(args):
       backup_preds = np.zeros_like(preds)
       backup_preds[np.arange(len(backup_preds)), indices] = no_preds
       preds += backup_preds
-
-      #preds = preds.numpy()
 
       y_pred[count:count + x.size(0), :] = preds
       if i == 0:

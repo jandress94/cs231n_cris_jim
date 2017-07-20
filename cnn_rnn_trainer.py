@@ -199,13 +199,6 @@ def run_epoch(encoder, decoder, loader, optimizer, save_loss_path, is_cnn_traini
 
         T_max = len(unbound_labels)
 
-        '''
-        log_soft_scores = [-nn.LogSoftmax()(time_step) for time_step in unbound_outputs]
-        loss_terms = [torch.gather(log_soft_scores[t], 1, torch.unsqueeze(unbound_labels[t], 1)) for t in range(T_max)]
-        masks = [torch.autograd.Variable((torch.Tensor(lengths) > t).float().cuda(), requires_grad = True) for t in range(T_max)]
-        masked_loss_terms = sum([loss_terms[t] * masks[t] for t in range(T_max)])
-        loss = torch.sum(masked_loss_terms) / torch.sum(sum(masks))
-        '''
         losses = [loss_fn(unbound_outputs[i], unbound_labels[i]) for i in range(T_max)]
         loss = torch.sum(sum(losses))
 

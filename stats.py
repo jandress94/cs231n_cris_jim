@@ -115,8 +115,6 @@ def plot_loss_and_f2(args):
 
             i += 1
 
-    #plt.scatter(epoch, loss)
-    #plt.show()
 
     fig, ax1 = plt.subplots(figsize = (5, 5))
     ax1.plot(epoch, loss, label = 'Training Loss')

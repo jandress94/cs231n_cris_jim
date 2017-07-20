@@ -7,7 +7,6 @@ import sys
 
 import numpy as np
 import os
-#from sklearn.metrics import fbeta_score
 
 import torchvision
 import torchvision.transforms as T
@@ -173,13 +172,13 @@ def main(args):
     # Check accuracy on the train and val sets.
     val_f2 = check_f2(model, val_loader, dtype, recomp_thresh = True)
     #train_f2 = check_f2(model, train_loader, dtype)
+    #print('Train f2: ', train_f2)
     print('Val f2: ', val_f2)
     if val_f2 > max_f2:
         print('found a new best!')
         max_f2 = val_f2
         torch.save(model.state_dict(), args.save_model_path)
         np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
-    #print('Train f2: ', train_f2)
     print()
 
   # Now we want to finetune the entire model for a few epochs. To do thise we
@@ -218,7 +217,6 @@ def main(args):
         max_f2 = val_f2
         torch.save(model.state_dict(), args.save_model_path)
         np.save(args.save_thresholds_path, label_thresholds, allow_pickle = False)
-   # print('Train f2: ', train_f2)
     print()
 
 def run_epoch(model, loss_fn, loader, optimizer, dtype, save_loss_path):
